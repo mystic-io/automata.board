@@ -12,6 +12,8 @@ import { handleCreateGig } from './handlers/create-gig';
 import { handleClaimGig } from './handlers/claim-gig';
 import { handleAgentDocs } from './handlers/docs';
 import { jsonResponse, errorResponse } from './utils/validation';
+import { createMcpHandler } from 'agents/mcp';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 import { paymentMiddleware, x402ResourceServer } from '@x402/hono';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
@@ -101,6 +103,51 @@ app.get('/v1/gigs/active', async (c) => {
     console.error('D1 query error:', err);
     return errorResponse('Failed to fetch active gigs', 500);
   }
+});
+
+// ---------------------------------------------------------------------------
+// MCP Server
+// ---------------------------------------------------------------------------
+app.all('/mcp/*', async (c) => {
+  const server = new McpServer({
+    name: "vivia-mcp",
+    version: "0.1.0"
+  });
+
+  server.registerTool(
+    "get_active_gigs",
+    {
+      description: "Get a list of currently active agent gigs on the Vivia network.",
+    },
+    async () => {
+      try {
+        const result = await c.env.DB.prepare(
+          `SELECT gig_id, buyer_pubkey, task_type, payload_json, bounty_sats, status, created_at, expires_at
+           FROM agent_gigs
+           WHERE status = 'ACTIVE' AND expires_at > datetime('now')
+           ORDER BY created_at DESC
+           LIMIT 100`
+        ).all<GigRecord>();
+
+        return {
+          content: [
+            { type: "text", text: JSON.stringify(result.results, null, 2) }
+          ]
+        };
+      } catch (err) {
+        console.error('MCP Tool Error (get_active_gigs):', err);
+        return {
+          content: [
+            { type: "text", text: JSON.stringify({ error: 'Failed to fetch gigs' }) }
+          ],
+          isError: true
+        };
+      }
+    }
+  );
+
+  const handler = createMcpHandler(server, { route: '/mcp' });
+  return handler(c.req.raw, c.env, c.executionCtx as any);
 });
 
 // Health checks

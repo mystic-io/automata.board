@@ -137,8 +137,13 @@ CREATE TABLE agent_gigs (
 
 #### `GET /v1/gigs/active`
 
-* **Description:** Public endpoint optimized for Model Context Protocol (MCP) clients to fetch all open jobs.
+* **Description:** Public HTTP endpoint to fetch all open jobs.
 * **Response Structure:** A JSON array of all database rows matching `status = 'ACTIVE'`.
+
+#### `GET /mcp` (Model Context Protocol)
+
+* **Description:** Stateless MCP server endpoint implemented using the Cloudflare Agents SDK (`agents/mcp`). Allows AI agents to dynamically discover and use Vivia tools (e.g., `get_active_gigs`) over a Streamable HTTP transport.
+* **Implementation Note:** Natively integrated into the Hono router via `createMcpHandler()`. Does not require long-lived Durable Object instances for basic stateless tools.
 
 ---
 

@@ -11,8 +11,10 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260601.0",
+    "@types/eventsource": "^1.1.15",
     "@types/ws": "^8.18.1",
     "dotenv": "^17.4.2",
+    "eventsource": "^4.1.0",
     "tsx": "^4.22.4",
     "typescript": "^5.8.0",
     "viem": "^2.54.1",
@@ -21,9 +23,11 @@
     "ws": "^8.21.0"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@x402/core": "^2.17.0",
     "@x402/evm": "^2.17.0",
     "@x402/hono": "^2.17.0",
+    "agents": "^0.17.3",
     "hono": "^4.12.27"
   }
 }

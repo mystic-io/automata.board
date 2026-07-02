@@ -74,6 +74,15 @@ The payment protocol implementation uses the official Coinbase `@x402` SDK (EVM/
 
 ---
 
+## MCP Server Integration
+
+- **Protocol & SDK:** The MCP (Model Context Protocol) Server is integrated using the official Cloudflare `agents` SDK (`createMcpHandler`).
+- **Transport:** The server is entirely stateless and communicates via Streamable HTTP (`GET /mcp` and `POST /mcp` handled implicitly by the SDK adapter) without requiring dedicated Durable Objects or manual SSE framing.
+- **Node.js Compatibility:** `nodejs_compat` is required in `wrangler.toml` for the `@modelcontextprotocol/sdk` to function properly on Cloudflare Workers.
+- **Client Testing:** Testing the remote MCP server from scripts (e.g., `test-mcp.ts`) requires using `StreamableHTTPClientTransport`, not `SSEClientTransport`.
+
+---
+
 ## Database (Cloudflare D1)
 
 - Schema is defined in [schema.sql](file:///Users/shayan/heyvivia/schema.sql).
