@@ -2,28 +2,29 @@ import { x402Client, x402HTTPClient } from "@x402/core/client";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
 import { createWalletClient, http } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
-import { baseSepolia } from "viem/chains";
+import { base } from "viem/chains";
 import WebSocket from "ws";
 import { config } from "dotenv";
 
 config({ path: ".dev.vars" });
 
 const API_URL = "https://vivia-api-prod.flexflow.workers.dev";
-const MNEMONIC = process.env.TESTNET_MNEMONIC;
+const MNEMONIC = process.env.WALLET_MNEMONIC;
 
 if (!MNEMONIC) {
-  throw new Error("Missing TESTNET_MNEMONIC in .dev.vars");
+  throw new Error("Missing WALLET_MNEMONIC in .dev.vars");
 }
 
+// 1. Initialize Viem Wallet on Base Mainnet
 const account = mnemonicToAccount(MNEMONIC);
 const walletClient = createWalletClient({
   account,
-  chain: baseSepolia,
+  chain: base,
   transport: http(),
 });
 
 const client = new x402Client();
-registerExactEvmScheme(client, { signer: walletClient, networks: ["eip155:84532"] });
+registerExactEvmScheme(client, { signer: walletClient, networks: ["eip155:8453"] });
 const httpClient = new x402HTTPClient(client);
 
 async function runTests() {

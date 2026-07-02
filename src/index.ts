@@ -23,7 +23,7 @@ import { registerExactEvmScheme as registerFacilitatorEvm } from '@x402/evm/exac
 import { toFacilitatorEvmSigner } from '@x402/evm';
 import { createWalletClient, http, publicActions } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
-import { baseSepolia } from "viem/chains";
+import { base } from "viem/chains";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -46,17 +46,17 @@ app.use('/v1/gigs/create', async (c, next) => {
     return errorResponse('Payment configuration error', 500);
   }
 
-  if (!c.env.TESTNET_MNEMONIC) {
-    console.error('CRITICAL: TESTNET_MNEMONIC secret is missing for local facilitator');
+  if (!c.env.WALLET_MNEMONIC) {
+    console.error('CRITICAL: WALLET_MNEMONIC secret is missing for local facilitator');
     return errorResponse('Payment configuration error', 500);
   }
 
   // 1. Create a local Viem combined client (Wallet + Public) using the public RPC
-  const account = mnemonicToAccount(c.env.TESTNET_MNEMONIC);
+  const account = mnemonicToAccount(c.env.WALLET_MNEMONIC);
   const combinedClient = createWalletClient({
     account,
-    chain: baseSepolia,
-    transport: http("https://sepolia.base.org"),
+    chain: base,
+    transport: http("https://mainnet.base.org"),
   }).extend(publicActions);
   const signer = toFacilitatorEvmSigner(combinedClient);
 
@@ -64,7 +64,7 @@ app.use('/v1/gigs/create', async (c, next) => {
   const localFacilitator = new x402Facilitator();
   registerFacilitatorEvm(localFacilitator, {
     signer,
-    networks: 'eip155:84532'
+    networks: 'eip155:8453'
   });
 
   localFacilitator.onVerifyFailure(async (ctx) => {
@@ -76,15 +76,15 @@ app.use('/v1/gigs/create', async (c, next) => {
 
   // 3. Mount it to the Resource Server
   const resourceServer = new x402ResourceServer(localFacilitator)
-    .register('eip155:84532', new ExactEvmScheme());
+    .register('eip155:8453', new ExactEvmScheme());
 
   const middleware = paymentMiddleware(
     {
       'POST /v1/gigs/create': {
         accepts: {
           scheme: 'exact',
-          price: '$0.5',
-          network: 'eip155:84532', // Base Sepolia
+          price: '$0.01',
+          network: 'eip155:8453', // Base Mainnet
           payTo: c.env.X402_PAY_TO, // Dynamic from env
         },
         description: 'Post a gig to the Vivia network',
@@ -244,13 +244,13 @@ app.get('/', async (c) => {
       discovery: 'mcp'
     },
     status: 'operational',
-    network: 'Base Sepolia (eip155:84532)',
+    network: 'Base Mainnet (eip155:8453)',
     active_tasks: activeBountiesCount,
     payment_requirements: {
-      protocol: "x402",
-      network: "eip155:84532",
+      scheme: "exact",
+      network: "eip155:8453",
       token: "USDC",
-      price_per_gig: "$0.50"
+      price_per_gig: "$0.01"
     },
     endpoints: {
       mcp: 'GET/POST /mcp',

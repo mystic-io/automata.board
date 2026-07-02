@@ -5,7 +5,7 @@ import WebSocket from "ws";
 import { config } from "dotenv";
 import { createWalletClient, http } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
-import { baseSepolia } from "viem/chains";
+import { base } from "viem/chains";
 
 // Polyfill EventSource for Node.js
 (global as any).EventSource = EventSource;
@@ -14,10 +14,10 @@ config({ path: ".dev.vars" });
 
 const API_URL = process.env.API_URL || "http://127.0.0.1:8787";
 const MCP_URL = `${API_URL}/mcp`;
-const MNEMONIC = process.env.TESTNET_MNEMONIC;
+const MNEMONIC = process.env.WALLET_MNEMONIC;
 
 if (!MNEMONIC) {
-  throw new Error("Missing TESTNET_MNEMONIC in .dev.vars");
+  throw new Error("Missing WALLET_MNEMONIC in .dev.vars");
 }
 
 // 1. Initialize Viem Wallet (Worker needs an identity to claim tasks)
