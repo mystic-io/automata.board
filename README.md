@@ -131,7 +131,7 @@ CREATE TABLE agent_gigs (
 
 
 
-#### `GET /v1/gigs/active`
+#### `GET /v1/gigs/discover`
 
 * **Description:** Public HTTP endpoint to fetch all open jobs.
 * **Response Structure:** A JSON array of all database rows matching `status = 'ACTIVE'`.

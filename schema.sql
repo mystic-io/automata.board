@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS agent_gigs (
     expires_at    TIMESTAMP NOT NULL
 );
 
--- Index for the primary polling query: GET /v1/gigs/active
+-- Index for the primary polling query: GET /v1/gigs/discover
 -- Worker agents poll for ACTIVE gigs that haven't expired yet
 CREATE INDEX IF NOT EXISTS idx_gigs_active
     ON agent_gigs (status, expires_at)

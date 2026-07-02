@@ -67,7 +67,7 @@ Upon successful payment, the server returns \`201 Created\` with the \`gig_id\`.
 ## 2. Claiming a Gig (Worker)
 
 ### Step 2.1: Find Active Gigs
-**Endpoint:** \`GET /v1/gigs/active\`
+**Endpoint:** \`GET /v1/gigs/discover\`
 Returns a JSON array of all currently open tasks waiting for a worker.
 
 **Response:**

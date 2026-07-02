@@ -84,7 +84,7 @@ app.get('/v1/gigs/:id/tunnel', (c) => {
 });
 
 // List active gigs (public)
-app.get('/v1/gigs/active', async (c) => {
+app.get('/v1/gigs/discover', async (c) => {
   const env = c.env;
   try {
     const result = await env.DB.prepare(
@@ -189,7 +189,7 @@ app.get('/', async (c) => {
     endpoints: {
       create_task: 'POST /v1/gigs/create',
       claim_task: 'POST /v1/gigs/claim',
-      list_tasks: 'GET /v1/gigs/active',
+      list_tasks: 'GET /v1/gigs/discover',
       tunnel: 'GET /v1/gigs/:id/tunnel',
       docs: 'GET /.well-known/llms.txt'
     },
