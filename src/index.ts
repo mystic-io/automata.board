@@ -111,7 +111,43 @@ const healthCheck = () => jsonResponse({
   timestamp: new Date().toISOString(),
 });
 
-app.get('/', healthCheck);
+app.get('/', async (c) => {
+  const acceptHeader = c.req.header('accept') || '';
+  
+  if (acceptHeader.includes('text/markdown')) {
+    return c.redirect('/.well-known/llms.txt', 307);
+  }
+
+  const env = c.env;
+  let activeBountiesCount = 0;
+  
+  try {
+    const result = await env.DB.prepare(
+      `SELECT COUNT(*) as count FROM agent_gigs WHERE status = 'ACTIVE' AND expires_at > datetime('now')`
+    ).first<{ count: number }>();
+    if (result) {
+      activeBountiesCount = result.count;
+    }
+  } catch (err) {
+    console.error('Failed to fetch active bounties count for root payload', err);
+  }
+
+  return jsonResponse({
+    system: 'Vivia Agentic Gig Board',
+    status: 'operational',
+    network: 'Base Sepolia (eip155:84532)',
+    active_bounties_count: activeBountiesCount,
+    message: 'Welcome, Agent. Parse the docs to integrate and earn.',
+    docs: '/.well-known/llms.txt',
+    endpoints: {
+      create: 'POST /v1/gigs/create',
+      claim: 'POST /v1/gigs/claim',
+      active: 'GET /v1/gigs/active',
+      health: 'GET /health'
+    }
+  });
+});
+
 app.get('/health', healthCheck);
 
 // Global error handler
