@@ -20,16 +20,20 @@ if (!MNEMONIC) {
   throw new Error("Missing WALLET_MNEMONIC in .dev.vars");
 }
 
-// 1. Initialize Viem Wallet (Worker needs an identity to claim tasks)
-// We'll use the 2nd account derived from the mnemonic to differentiate from buyer
+// 1. Initialize Viem Wallet on Base Mainnet
 const account = mnemonicToAccount(MNEMONIC, { accountIndex: 1 });
+const walletClient = createWalletClient({
+  account,
+  chain: base,
+  transport: http("https://base-rpc.publicnode.com"),
+});
 
 async function main() {
   console.log("🚀 Starting Worker Agent Simulation...");
   console.log(`🤖 Worker Account: ${account.address}`);
 
   // 2. Connect to embedded MCP server for Discovery
-  console.log(`\\n🔍 Connecting to MCP server at ${MCP_URL} for discovery...`);
+  console.log(`\n🔍 Connecting to MCP server at ${MCP_URL} for discovery...`);
   const transport = new StreamableHTTPClientTransport(new URL(MCP_URL), {
     requestInit: {
       headers: {

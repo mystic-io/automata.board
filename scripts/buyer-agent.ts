@@ -22,7 +22,7 @@ const account = mnemonicToAccount(MNEMONIC);
 const walletClient = createWalletClient({
   account,
   chain: base,
-  transport: http(),
+  transport: http("https://base-rpc.publicnode.com"),
 });
 
 // 2. Initialize x402 Client with EVM Scheme
@@ -72,6 +72,12 @@ async function main() {
     console.log("Parsed Payment Required:", JSON.stringify(paymentRequired, null, 2));
 
     const paymentPayload = await httpClient.createPaymentPayload(paymentRequired);
+    console.log("Payment Payload:", paymentPayload);
+    
+    // Wait for the transaction to be mined on Base (2s block time, wait 4s)
+    console.log("⏳ Waiting 4 seconds for transaction to be mined...");
+    await new Promise(resolve => setTimeout(resolve, 4000));
+
     const paymentHeaders = httpClient.encodePaymentSignatureHeader(paymentPayload);
 
     console.log("🚀 Resubmitting task with EVM payment signature...");

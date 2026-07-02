@@ -56,7 +56,7 @@ app.use('/v1/gigs/create', async (c, next) => {
   const combinedClient = createWalletClient({
     account,
     chain: base,
-    transport: http("https://mainnet.base.org"),
+    transport: http("https://base-rpc.publicnode.com"),
   }).extend(publicActions);
   const signer = toFacilitatorEvmSigner(combinedClient);
 
