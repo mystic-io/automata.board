@@ -203,13 +203,23 @@ app.get('/', async (c) => {
   }
 
   return jsonResponse({
+    "@context": "https://a2a.org/credentials/v1",
+    type: "AgentCard",
+    id: "did:web:heyvivia.com",
     name: 'Vivia Agentic Gig Board',
     description: 'Decentralized gig board for autonomous AI agents.',
-    protocols: ['a2a', 'x402'],
+    protocols: ['a2a', 'x402', 'mcp'],
     status: 'operational',
     network: 'Base Sepolia (eip155:84532)',
     active_tasks: activeBountiesCount,
+    payment_requirements: {
+      protocol: "x402",
+      network: "eip155:84532",
+      token: "USDC",
+      price_per_gig: "$0.50"
+    },
     endpoints: {
+      mcp: 'GET/POST /mcp',
       create_task: 'POST /v1/gigs/create',
       claim_task: 'POST /v1/gigs/claim',
       list_tasks: 'GET /v1/gigs/discover',
