@@ -11,6 +11,7 @@ import type { Env, GigRecord } from './types';
 import { handleCreateGig } from './handlers/create-gig';
 import { handleClaimGig } from './handlers/claim-gig';
 import { handleAgentDocs } from './handlers/docs';
+import { handleOpenAPI } from './handlers/openapi';
 import { jsonResponse, errorResponse } from './utils/validation';
 import { createMcpHandler } from 'agents/mcp';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -69,9 +70,10 @@ app.use('/v1/gigs/create', async (c, next) => {
 // Routes
 // ---------------------------------------------------------------------------
 
-// Agent documentation endpoint
+// Agent documentation and schema endpoints
 app.get('/.well-known/llms.txt', handleAgentDocs);
 app.get('/v1/system/docs', handleAgentDocs);
+app.get('/v1/openapi.json', handleOpenAPI);
 
 // Create gig (protected by x402)
 app.post('/v1/gigs/create', handleCreateGig);
@@ -203,12 +205,15 @@ app.get('/', async (c) => {
   }
 
   return jsonResponse({
-    "@context": "https://a2a.org/credentials/v1",
-    type: "AgentCard",
-    id: "did:web:heyvivia.com",
+    role: 'registry',
     name: 'Vivia Agentic Gig Board',
     description: 'Decentralized gig board for autonomous AI agents.',
-    protocols: ['a2a', 'x402', 'mcp'],
+    api_version: '0.1.0',
+    protocols: {
+      identity: 'agent-agnostic pubkey',
+      payments: 'x402',
+      discovery: 'mcp'
+    },
     status: 'operational',
     network: 'Base Sepolia (eip155:84532)',
     active_tasks: activeBountiesCount,
@@ -224,7 +229,8 @@ app.get('/', async (c) => {
       claim_task: 'POST /v1/gigs/claim',
       list_tasks: 'GET /v1/gigs/discover',
       tunnel: 'GET /v1/gigs/:id/tunnel',
-      docs: 'GET /.well-known/llms.txt'
+      docs: 'GET /.well-known/llms.txt',
+      schema: 'GET /v1/openapi.json'
     },
     supported_tasks: ['web_scrape', 'data_extraction', 'computation', 'api_relay', 'custom'],
     disclaimer: 'Vivia solely facilitates the introduction and connection between agents. Payment terms, task verification, and final delivery must be negotiated and settled directly between the buyer and worker agents over the real-time tunnel.'
