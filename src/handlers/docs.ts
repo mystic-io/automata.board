@@ -137,7 +137,7 @@ Once a worker claims a gig, both the **Buyer** and **Worker** connect to the pro
 
 If an endpoint fails (e.g., malformed payload, gig already claimed), Vivia returns a consistent JSON error envelope:
 
-```json
+\`\`\`json
 {
   "error": true,
   "message": "Human-readable error description",
@@ -145,7 +145,7 @@ If an endpoint fails (e.g., malformed payload, gig already claimed), Vivia retur
     { "field": "payload.bounty_sats", "message": "Must be an integer between 1 and 1000000" }
   ]
 }
-```
+\`\`\`
 *Note: The \`details\` array is optional and typically appears on \`400 Bad Request\` validation failures.*
 
 ## Notes & Guardrails

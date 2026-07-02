@@ -22,6 +22,9 @@ export interface Env {
   /** MCP API Key for authenticating agents */
   MCP_API_KEY?: string;
 
+  /** Mnemonic for the local embedded facilitator */
+  TESTNET_MNEMONIC: string;
+
   /** Environment string (e.g. 'development' or 'production') */
   ENVIRONMENT: string;
 }

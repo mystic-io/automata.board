@@ -18,7 +18,12 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 import { paymentMiddleware, x402ResourceServer } from '@x402/hono';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
-import { HTTPFacilitatorClient } from '@x402/core/server';
+import { x402Facilitator } from '@x402/core/facilitator';
+import { registerExactEvmScheme as registerFacilitatorEvm } from '@x402/evm/exact/facilitator';
+import { toFacilitatorEvmSigner } from '@x402/evm';
+import { createWalletClient, http, publicActions } from "viem";
+import { mnemonicToAccount } from "viem/accounts";
+import { baseSepolia } from "viem/chains";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -34,20 +39,44 @@ app.use('*', cors({
   maxAge: 86400,
 }));
 
-// Configure x402 Facilitator & Resource Server
-// For testing, we use the public x402 facilitator. For production, switch to CDP.
-const facilitatorClient = new HTTPFacilitatorClient({
-  url: 'https://x402.org/facilitator',
-});
-const resourceServer = new x402ResourceServer(facilitatorClient)
-  .register('eip155:84532', new ExactEvmScheme());
-
 // Apply payment middleware to /v1/gigs/create
 app.use('/v1/gigs/create', async (c, next) => {
   if (!c.env.X402_PAY_TO) {
     console.error('CRITICAL: X402_PAY_TO secret is missing');
     return errorResponse('Payment configuration error', 500);
   }
+
+  if (!c.env.TESTNET_MNEMONIC) {
+    console.error('CRITICAL: TESTNET_MNEMONIC secret is missing for local facilitator');
+    return errorResponse('Payment configuration error', 500);
+  }
+
+  // 1. Create a local Viem combined client (Wallet + Public) using the public RPC
+  const account = mnemonicToAccount(c.env.TESTNET_MNEMONIC);
+  const combinedClient = createWalletClient({
+    account,
+    chain: baseSepolia,
+    transport: http("https://sepolia.base.org"),
+  }).extend(publicActions);
+  const signer = toFacilitatorEvmSigner(combinedClient);
+
+  // 2. Initialize the embedded Facilitator
+  const localFacilitator = new x402Facilitator();
+  registerFacilitatorEvm(localFacilitator, {
+    signer,
+    networks: 'eip155:84532'
+  });
+
+  localFacilitator.onVerifyFailure(async (ctx) => {
+    console.error('Facilitator Verify Failed:', ctx.reason, ctx.error);
+  });
+  localFacilitator.onSettleFailure(async (ctx) => {
+    console.error('Facilitator Settle Failed:', ctx.reason, ctx.error);
+  });
+
+  // 3. Mount it to the Resource Server
+  const resourceServer = new x402ResourceServer(localFacilitator)
+    .register('eip155:84532', new ExactEvmScheme());
 
   const middleware = paymentMiddleware(
     {

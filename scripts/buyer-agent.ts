@@ -1,5 +1,6 @@
 import { x402Client, x402HTTPClient } from "@x402/core/client";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
+import { toClientEvmSigner } from "@x402/evm";
 import { createWalletClient, http } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
@@ -26,7 +27,7 @@ const walletClient = createWalletClient({
 
 // 2. Initialize x402 Client with EVM Scheme
 const client = new x402Client();
-registerExactEvmScheme(client, { signer: account, networks: ["eip155:84532"] });
+registerExactEvmScheme(client, { signer: toClientEvmSigner(account), networks: ["eip155:84532"] });
 const httpClient = new x402HTTPClient(client);
 
 async function main() {
@@ -86,6 +87,7 @@ async function main() {
 
   if (!response.ok) {
     const err = await response.text();
+    console.error(`Error details: ${err}`);
     throw new Error(`Failed to create gig: ${response.status} ${err}`);
   }
 
