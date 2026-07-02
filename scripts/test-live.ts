@@ -8,7 +8,7 @@ import { config } from "dotenv";
 
 config({ path: ".dev.vars" });
 
-const API_URL = "https://vivia-api-prod.flexflow.workers.dev";
+const API_URL = "https://vivia-api.flexflow.workers.dev";
 const MNEMONIC = process.env.WALLET_MNEMONIC;
 
 if (!MNEMONIC) {

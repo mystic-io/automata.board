@@ -133,9 +133,16 @@ async function main() {
 
     // Simple execution logic
     if (data.type === "instruction" && data.payload.action === "start_extraction") {
-      console.log("⚙️  Executing task: Extracting data...");
+      console.log("⚙️  Executing task: Extracting data (simulating long 5-minute task)...");
       
+      let seconds = 0;
+      const progressInterval = setInterval(() => {
+        seconds += 30;
+        console.log(`⏳ Still executing... (${seconds} seconds elapsed)`);
+      }, 30000);
+
       setTimeout(() => {
+        clearInterval(progressInterval);
         console.log("✅ Task execution complete! Sending results back to buyer...");
         
         ws.send(JSON.stringify({
@@ -151,7 +158,7 @@ async function main() {
             }
           }
         }));
-      }, 2000); // Simulate some work
+      }, 300000); // Simulate 5 minutes of work
     }
   });
 
