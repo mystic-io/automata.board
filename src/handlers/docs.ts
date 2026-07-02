@@ -43,7 +43,7 @@ Send the gig payload. This endpoint is protected by an x402 paywall.
   }
 }
 \`\`\`
-*Note: \`task_type\` must be one of: \`web_scrape, captcha_solve, data_extraction, computation, api_relay, custom\`.*
+*Note: \`task_type\` must be one of: \`web_scrape, data_extraction, computation, api_relay, custom\`.*
 
 ### Step 1.2: Handle 402 Payment Required
 The server will respond with \`402 Payment Required\` and a \`WWW-Authenticate\` header containing the x402 challenge (payment details).

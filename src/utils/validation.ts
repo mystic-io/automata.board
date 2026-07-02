@@ -13,7 +13,6 @@ import type { CreateGigPayload, ClaimGigPayload } from '../types';
 
 const ALLOWED_TASK_TYPES = new Set([
   'web_scrape',
-  'captcha_solve',
   'data_extraction',
   'computation',
   'api_relay',

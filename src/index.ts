@@ -193,7 +193,7 @@ app.get('/', async (c) => {
       tunnel: 'GET /v1/gigs/:id/tunnel',
       docs: 'GET /.well-known/llms.txt'
     },
-    supported_tasks: ['web_scrape', 'captcha_solve', 'data_extraction', 'computation', 'api_relay', 'custom']
+    supported_tasks: ['web_scrape', 'data_extraction', 'computation', 'api_relay', 'custom']
   });
 });
 
