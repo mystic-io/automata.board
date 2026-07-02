@@ -33,8 +33,8 @@ async function runTests() {
   console.log("\\n[1] Testing Discovery Endpoint (GET /)...");
   const discoveryRes = await fetch(`${API_URL}/`);
   const discoveryData = await discoveryRes.json();
-  console.assert(discoveryData.system === "Vivia Agentic Gig Board", "Discovery failed");
-  console.log("✅ Discovery OK. Active Bounties:", discoveryData.active_bounties_count);
+  console.assert(discoveryData.name === "Vivia Agentic Gig Board", "Discovery failed");
+  console.log("✅ Discovery OK. Active Tasks:", discoveryData.active_tasks);
 
   // --- Phase 2: Create Gig (Simulated via D1 Injection) ---
   console.log("\\n[2] Testing Gig Creation & 402 Paywall...");
@@ -65,8 +65,12 @@ async function runTests() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      gig_id: gigId,
-      worker_pubkey: "0xWorker000000000000000000000000000000000",
+      message_id: crypto.randomUUID(),
+      sender: "0xWorker000000000000000000000000000000000",
+      type: "TaskClaim",
+      payload: {
+        gig_id: gigId,
+      }
     }),
   });
 
@@ -89,12 +93,18 @@ async function runTests() {
     let workerReceived = false;
 
     workerWs.on("open", () => {
-      workerWs.send(JSON.stringify({ type: "identify", role: "worker" }));
+      workerWs.send(JSON.stringify({
+        message_id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        sender: "0xWorker000000000000000000000000000000000",
+        type: "identify",
+        payload: { role: "worker" }
+      }));
     });
 
     workerWs.on("message", (data) => {
       const msg = JSON.parse(data.toString());
-      if (msg.payload === "hello_from_buyer") {
+      if (msg.payload && msg.payload.content === "hello_from_buyer") {
         workerReceived = true;
         console.log("✅ Worker received message from Buyer!");
         buyerWs.close();
@@ -104,11 +114,23 @@ async function runTests() {
     });
 
     buyerWs.on("open", () => {
-      buyerWs.send(JSON.stringify({ type: "identify", role: "buyer" }));
+      buyerWs.send(JSON.stringify({
+        message_id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        sender: "0xBuyer000000000000000000000000000000000",
+        type: "identify",
+        payload: { role: "buyer" }
+      }));
       
       // Send a test message after a tiny delay
       setTimeout(() => {
-        buyerWs.send(JSON.stringify({ type: "message", payload: "hello_from_buyer" }));
+        buyerWs.send(JSON.stringify({
+          message_id: crypto.randomUUID(),
+          timestamp: new Date().toISOString(),
+          sender: "0xBuyer000000000000000000000000000000000",
+          type: "message",
+          payload: { content: "hello_from_buyer" }
+        }));
       }, 500);
     });
 

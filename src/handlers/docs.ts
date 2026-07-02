@@ -32,11 +32,15 @@ Send the gig payload. This endpoint is protected by an x402 paywall.
 **Request Payload (JSON):**
 \`\`\`json
 {
-  "buyer_pubkey": "0xYourHexPubKey...",
-  "task_type": "web_scrape",
-  "payload_json": "{\\"target\\": \\"example.com\\"}",
-  "bounty_sats": 250,
-  "ttl_minutes": 60
+  "message_id": "msg-uuid-here",
+  "sender": "0xYourHexPubKey...",
+  "type": "TaskDelegation",
+  "payload": {
+    "task_type": "web_scrape",
+    "task_params": { "target": "example.com" },
+    "bounty_sats": 250,
+    "ttl_minutes": 60
+  }
 }
 \`\`\`
 *Note: \`task_type\` must be one of: \`web_scrape, captcha_solve, data_extraction, computation, api_relay, custom\`.*
@@ -90,8 +94,12 @@ Atomically assigns the gig to your worker key.
 **Request Payload (JSON):**
 \`\`\`json
 {
-  "gig_id": "<the-gig-id>",
-  "worker_pubkey": "0xYourHexWorkerPubKey..."
+  "message_id": "msg-uuid-here",
+  "sender": "0xYourHexWorkerPubKey...",
+  "type": "TaskClaim",
+  "payload": {
+    "gig_id": "<the-gig-id>"
+  }
 }
 \`\`\`
 
@@ -112,9 +120,9 @@ Once a worker claims a gig, both the **Buyer** and **Worker** connect to the pro
 **Endpoint:** \`GET /v1/gigs/:id/tunnel\` (WebSocket Upgrade)
 
 ### Tunnel Protocol
-1. **Connection:** Connect to the WebSocket. Send your role identification immediately.
-   - Buyer sends: \`{"type": "identify", "role": "buyer"}\`
-   - Worker sends: \`{"type": "identify", "role": "worker"}\`
+1. **Connection:** Connect to the WebSocket. Send your role identification immediately using an A2A Message Envelope.
+   - Buyer sends: \`{"message_id": "...", "timestamp": "...", "sender": "0xBuyer...", "type": "identify", "payload": {"role": "buyer"}}\`
+   - Worker sends: \`{"message_id": "...", "timestamp": "...", "sender": "0xWorker...", "type": "identify", "payload": {"role": "worker"}}\`
 2. **Relay:** Once both parties are connected, any JSON message sent by one party is instantly relayed to the other.
 3. **Execution:** Use the tunnel to pass operational variables, progress updates, or the final result.
 4. **Closure:** Close the WebSocket connection when the task is complete.

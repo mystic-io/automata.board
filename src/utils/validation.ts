@@ -50,57 +50,62 @@ export function validateCreateGigPayload(
 
   const obj = body as Record<string, unknown>;
 
-  // buyer_pubkey
-  if (typeof obj.buyer_pubkey !== 'string' || obj.buyer_pubkey.trim().length === 0) {
-    errors.push({ field: 'buyer_pubkey', message: 'Must be a non-empty string (hex-encoded public key)' });
+  if (typeof obj.message_id !== 'string' || obj.message_id.trim().length === 0) {
+    errors.push({ field: 'message_id', message: 'Must be a non-empty string' });
   }
 
-  // task_type
-  if (typeof obj.task_type !== 'string' || !ALLOWED_TASK_TYPES.has(obj.task_type)) {
-    errors.push({
-      field: 'task_type',
-      message: `Must be one of: ${[...ALLOWED_TASK_TYPES].join(', ')}`,
-    });
+  if (typeof obj.sender !== 'string' || obj.sender.trim().length === 0) {
+    errors.push({ field: 'sender', message: 'Must be a non-empty string (hex-encoded public key)' });
   }
 
-  // payload_json — must be a valid JSON string
-  if (typeof obj.payload_json !== 'string') {
-    errors.push({ field: 'payload_json', message: 'Must be a JSON-encoded string' });
+  if (obj.type !== 'TaskDelegation') {
+    errors.push({ field: 'type', message: 'Must be exactly "TaskDelegation"' });
+  }
+
+  if (!obj.payload || typeof obj.payload !== 'object') {
+    errors.push({ field: 'payload', message: 'Must be a JSON object' });
   } else {
-    if (obj.payload_json.length > MAX_PAYLOAD_SIZE) {
-      errors.push({ field: 'payload_json', message: `Must not exceed ${MAX_PAYLOAD_SIZE} characters` });
-    }
-    try {
-      JSON.parse(obj.payload_json);
-    } catch {
-      errors.push({ field: 'payload_json', message: 'Must contain valid JSON' });
-    }
-  }
+    const payload = obj.payload as Record<string, unknown>;
 
-  // bounty_sats
-  if (
-    typeof obj.bounty_sats !== 'number' ||
-    !Number.isInteger(obj.bounty_sats) ||
-    obj.bounty_sats < MIN_BOUNTY_SATS ||
-    obj.bounty_sats > MAX_BOUNTY_SATS
-  ) {
-    errors.push({
-      field: 'bounty_sats',
-      message: `Must be an integer between ${MIN_BOUNTY_SATS} and ${MAX_BOUNTY_SATS}`,
-    });
-  }
+    if (typeof payload.task_type !== 'string' || !ALLOWED_TASK_TYPES.has(payload.task_type)) {
+      errors.push({
+        field: 'payload.task_type',
+        message: `Must be one of: ${[...ALLOWED_TASK_TYPES].join(', ')}`,
+      });
+    }
 
-  // ttl_minutes
-  if (
-    typeof obj.ttl_minutes !== 'number' ||
-    !Number.isInteger(obj.ttl_minutes) ||
-    obj.ttl_minutes < MIN_TTL_MINUTES ||
-    obj.ttl_minutes > MAX_TTL_MINUTES
-  ) {
-    errors.push({
-      field: 'ttl_minutes',
-      message: `Must be an integer between ${MIN_TTL_MINUTES} and ${MAX_TTL_MINUTES}`,
-    });
+    if (!payload.task_params || typeof payload.task_params !== 'object') {
+      errors.push({ field: 'payload.task_params', message: 'Must be a JSON object' });
+    } else {
+      const taskParamsStr = JSON.stringify(payload.task_params);
+      if (taskParamsStr.length > MAX_PAYLOAD_SIZE) {
+        errors.push({ field: 'payload.task_params', message: `Serialized params must not exceed ${MAX_PAYLOAD_SIZE} characters` });
+      }
+    }
+
+    if (
+      typeof payload.bounty_sats !== 'number' ||
+      !Number.isInteger(payload.bounty_sats) ||
+      payload.bounty_sats < MIN_BOUNTY_SATS ||
+      payload.bounty_sats > MAX_BOUNTY_SATS
+    ) {
+      errors.push({
+        field: 'payload.bounty_sats',
+        message: `Must be an integer between ${MIN_BOUNTY_SATS} and ${MAX_BOUNTY_SATS}`,
+      });
+    }
+
+    if (
+      typeof payload.ttl_minutes !== 'number' ||
+      !Number.isInteger(payload.ttl_minutes) ||
+      payload.ttl_minutes < MIN_TTL_MINUTES ||
+      payload.ttl_minutes > MAX_TTL_MINUTES
+    ) {
+      errors.push({
+        field: 'payload.ttl_minutes',
+        message: `Must be an integer between ${MIN_TTL_MINUTES} and ${MAX_TTL_MINUTES}`,
+      });
+    }
   }
 
   if (errors.length > 0) {
@@ -127,12 +132,25 @@ export function validateClaimGigPayload(
 
   const obj = body as Record<string, unknown>;
 
-  if (typeof obj.gig_id !== 'string' || obj.gig_id.trim().length === 0) {
-    errors.push({ field: 'gig_id', message: 'Must be a non-empty string' });
+  if (typeof obj.message_id !== 'string' || obj.message_id.trim().length === 0) {
+    errors.push({ field: 'message_id', message: 'Must be a non-empty string' });
   }
 
-  if (typeof obj.worker_pubkey !== 'string' || obj.worker_pubkey.trim().length === 0) {
-    errors.push({ field: 'worker_pubkey', message: 'Must be a non-empty string (hex-encoded public key)' });
+  if (typeof obj.sender !== 'string' || obj.sender.trim().length === 0) {
+    errors.push({ field: 'sender', message: 'Must be a non-empty string (hex-encoded public key)' });
+  }
+
+  if (obj.type !== 'TaskClaim') {
+    errors.push({ field: 'type', message: 'Must be exactly "TaskClaim"' });
+  }
+
+  if (!obj.payload || typeof obj.payload !== 'object') {
+    errors.push({ field: 'payload', message: 'Must be a JSON object' });
+  } else {
+    const payload = obj.payload as Record<string, unknown>;
+    if (typeof payload.gig_id !== 'string' || payload.gig_id.trim().length === 0) {
+      errors.push({ field: 'payload.gig_id', message: 'Must be a non-empty string' });
+    }
   }
 
   if (errors.length > 0) {

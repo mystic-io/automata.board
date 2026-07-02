@@ -27,19 +27,27 @@ export interface Env {
 // API Payloads
 // ---------------------------------------------------------------------------
 
-/** Inbound JSON body for POST /v1/gigs/create */
+/** Inbound JSON body for POST /v1/gigs/create (A2A Message Envelope) */
 export interface CreateGigPayload {
-  buyer_pubkey: string;
-  task_type: string;
-  payload_json: string;
-  bounty_sats: number;
-  ttl_minutes: number;
+  message_id: string;
+  sender: string; // The buyer's public key
+  type: 'TaskDelegation';
+  payload: {
+    task_type: string;
+    task_params: Record<string, unknown>; // Replaces payload_json
+    bounty_sats: number;
+    ttl_minutes: number;
+  };
 }
 
-/** Inbound JSON body for POST /v1/gigs/claim */
+/** Inbound JSON body for POST /v1/gigs/claim (A2A Message Envelope) */
 export interface ClaimGigPayload {
-  gig_id: string;
-  worker_pubkey: string;
+  message_id: string;
+  sender: string; // The worker's public key
+  type: 'TaskClaim';
+  payload: {
+    gig_id: string;
+  };
 }
 
 // ---------------------------------------------------------------------------

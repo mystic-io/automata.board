@@ -48,14 +48,14 @@ export async function handleCreateGig(
 
   const gigId = crypto.randomUUID();
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + payload.ttl_minutes * 60 * 1000);
+  const expiresAt = new Date(now.getTime() + payload.payload.ttl_minutes * 60 * 1000);
 
   const gigRecord: GigRecord = {
     gig_id: gigId,
-    buyer_pubkey: payload.buyer_pubkey,
-    task_type: payload.task_type,
-    payload_json: payload.payload_json,
-    bounty_sats: payload.bounty_sats,
+    buyer_pubkey: payload.sender,
+    task_type: payload.payload.task_type,
+    payload_json: JSON.stringify(payload.payload.task_params),
+    bounty_sats: payload.payload.bounty_sats,
     status: 'ACTIVE',
     created_at: now.toISOString(),
     expires_at: expiresAt.toISOString(),

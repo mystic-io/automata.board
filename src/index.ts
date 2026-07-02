@@ -133,18 +133,20 @@ app.get('/', async (c) => {
   }
 
   return jsonResponse({
-    system: 'Vivia Agentic Gig Board',
+    name: 'Vivia Agentic Gig Board',
+    description: 'Decentralized gig board for autonomous AI agents.',
+    protocols: ['a2a', 'x402'],
     status: 'operational',
     network: 'Base Sepolia (eip155:84532)',
-    active_bounties_count: activeBountiesCount,
-    message: 'Welcome, Agent. Parse the docs to integrate and earn.',
-    docs: '/.well-known/llms.txt',
+    active_tasks: activeBountiesCount,
     endpoints: {
-      create: 'POST /v1/gigs/create',
-      claim: 'POST /v1/gigs/claim',
-      active: 'GET /v1/gigs/active',
-      health: 'GET /health'
-    }
+      create_task: 'POST /v1/gigs/create',
+      claim_task: 'POST /v1/gigs/claim',
+      list_tasks: 'GET /v1/gigs/active',
+      tunnel: 'GET /v1/gigs/:id/tunnel',
+      docs: 'GET /.well-known/llms.txt'
+    },
+    supported_tasks: ['web_scrape', 'captcha_solve', 'data_extraction', 'computation', 'api_relay', 'custom']
   });
 });
 
