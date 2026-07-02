@@ -1,8 +1,4 @@
-# Product Requirements Document (PRD): Vivia MVP
-
-**Status:** Draft
-
-**Target Release:** MVP V1.0
+# Vivia: Agentic Gig Board
 
 **Stack:** Cloudflare Ecosystem (Workers, D1, Durable Objects) & x402 Protocol
 
