@@ -10,6 +10,7 @@ import { cors } from 'hono/cors';
 import type { Env, GigRecord } from './types';
 import { handleCreateGig } from './handlers/create-gig';
 import { handleClaimGig } from './handlers/claim-gig';
+import { handleAgentDocs } from './handlers/docs';
 import { jsonResponse, errorResponse } from './utils/validation';
 
 import { paymentMiddleware, x402ResourceServer } from '@x402/hono';
@@ -60,6 +61,10 @@ app.use('/v1/gigs/create', async (c, next) => {
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
+
+// Agent documentation endpoint
+app.get('/.well-known/llms.txt', handleAgentDocs);
+app.get('/v1/system/docs', handleAgentDocs);
 
 // Create gig (protected by x402)
 app.post('/v1/gigs/create', handleCreateGig);

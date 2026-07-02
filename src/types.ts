@@ -21,6 +21,9 @@ export interface Env {
 
   /** x402 payment destination address */
   X402_PAY_TO: string;
+
+  /** Environment string (e.g. 'development' or 'production') */
+  ENVIRONMENT: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -74,4 +77,5 @@ export interface GigRecord {
 export interface ModerationResult {
   flagged: boolean;
   reason?: string;
+  error?: boolean;
 }

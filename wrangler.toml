@@ -24,3 +24,20 @@ class_name = "GigTunnel"
 [[migrations]]
 tag = "v1"
 new_classes = ["GigTunnel"]
+
+# ---------------------------------------------------------------------------
+# Production Environment
+# ---------------------------------------------------------------------------
+[env.production]
+name = "vivia-api-prod"
+[env.production.vars]
+ENVIRONMENT = "production"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "vivia-db-prod"
+database_id = "PLACEHOLDER_PROD_DB_ID"
+
+[[env.production.durable_objects.bindings]]
+name = "TUNNEL"
+class_name = "GigTunnel"

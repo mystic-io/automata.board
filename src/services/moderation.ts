@@ -81,45 +81,56 @@ interface OpenAIModerationResponse {
  */
 async function callOpenAIModeration(
   text: string,
-  apiKey: string
+  apiKey: string,
+  environment: string
 ): Promise<ModerationResult> {
-  const response = await fetch('https://api.openai.com/v1/moderations', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      input: text,
-      model: 'omni-moderation-latest',
-    }),
-  });
+  try {
+    const response = await fetch('https://api.openai.com/v1/moderations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        input: text,
+        model: 'omni-moderation-latest',
+      }),
+    });
 
-  if (!response.ok) {
-    // If the moderation API is down, fail open with a warning log
-    // In production, you might want to fail closed instead
-    console.error(
-      `OpenAI Moderation API error: ${response.status} ${response.statusText}`
+    if (!response.ok) {
+      console.error(
+        `OpenAI Moderation API error: ${response.status} ${response.statusText}`
+      );
+      if (environment === 'production') {
+        return { flagged: false, error: true, reason: 'Moderation service unavailable' };
+      }
+      // Fail open in development
+      return { flagged: false, error: true };
+    }
+
+    const data = (await response.json()) as OpenAIModerationResponse;
+    const result = data.results[0];
+
+    if (!result.flagged) {
+      return { flagged: false };
+    }
+
+    // Find the first flagged category for the error message
+    const flaggedCategory = Object.entries(result.categories).find(
+      ([, flagged]) => flagged
     );
-    return { flagged: false };
+
+    return {
+      flagged: true,
+      reason: `Content flagged by moderation: ${flaggedCategory?.[0] ?? 'unknown category'}`,
+    };
+  } catch (err) {
+    console.error('OpenAI fetch failed:', err);
+    if (environment === 'production') {
+      return { flagged: false, error: true, reason: 'Moderation service unreachable' };
+    }
+    return { flagged: false, error: true };
   }
-
-  const data = (await response.json()) as OpenAIModerationResponse;
-  const result = data.results[0];
-
-  if (!result.flagged) {
-    return { flagged: false };
-  }
-
-  // Find the first flagged category for the error message
-  const flaggedCategory = Object.entries(result.categories).find(
-    ([, flagged]) => flagged
-  );
-
-  return {
-    flagged: true,
-    reason: `Content flagged by moderation: ${flaggedCategory?.[0] ?? 'unknown category'}`,
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -136,11 +147,13 @@ async function callOpenAIModeration(
  * @param taskType   - The task_type field
  * @param payloadJson - The raw payload_json string
  * @param apiKey     - OpenAI API key
+ * @param environment - The current environment (e.g., 'production')
  */
 export async function moderateContent(
   taskType: string,
   payloadJson: string,
-  apiKey: string
+  apiKey: string,
+  environment: string
 ): Promise<ModerationResult> {
   // Concatenate all user-provided text for scanning
   const combinedText = `${taskType} ${payloadJson}`;
@@ -152,8 +165,8 @@ export async function moderateContent(
   }
 
   // Layer 2: OpenAI Moderation API
-  const moderationResult = await callOpenAIModeration(combinedText, apiKey);
-  if (moderationResult.flagged) {
+  const moderationResult = await callOpenAIModeration(combinedText, apiKey, environment);
+  if (moderationResult.flagged || moderationResult.error) {
     return moderationResult;
   }
 

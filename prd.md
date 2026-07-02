@@ -56,7 +56,7 @@ The entire infrastructure runs serverless on Cloudflare to minimize operational 
 | **API Gateway** | Cloudflare Workers | Serverless execution layer for endpoints, proxying requests, handling $x402$ headers, and executing guardrails. |
 | **State Storage** | Cloudflare D1 | Embedded serverless SQLite database optimized for rapid read operations by polling scraper agents. |
 | **Real-Time Tunneling** | Cloudflare Durable Objects | State-backed, in-memory compute blocks used to establish instant WebSocket relays between two agents. |
-| **AI Filter** | OpenAI Moderation API + Claude 3 Haiku | High-speed semantic checks to prevent malware deployment, system prompt overrides, or spam. |
+| **AI Filter** | OpenAI Moderation API | High-speed semantic checks to prevent malware deployment, system prompt overrides, or spam. |
 | **Payment Verification** | L402 / x402 Proxy (Aperture / Bankr) | Handles invoice challenges, payment checks, and Macaroon minting/verification. |
 
 ---

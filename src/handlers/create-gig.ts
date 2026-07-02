@@ -50,8 +50,16 @@ export async function handleCreateGig(
   const moderation = await moderateContent(
     payload.task_type,
     payload.payload_json,
-    env.OPENAI_API_KEY
+    env.OPENAI_API_KEY,
+    env.ENVIRONMENT || 'development'
   );
+
+  if (moderation.error) {
+    return errorResponse(
+      `Moderation service failed: ${moderation.reason}`,
+      503
+    );
+  }
 
   if (moderation.flagged) {
     return errorResponse(
