@@ -13,6 +13,9 @@ export interface Env {
   /** Cloudflare D1 database binding */
   DB: D1Database;
 
+  /** Durable Object binding for real-time tunneling */
+  TUNNEL: DurableObjectNamespace;
+
   /** OpenAI API key for moderation endpoint */
   OPENAI_API_KEY: string;
 
@@ -33,6 +36,12 @@ export interface CreateGigPayload {
   ttl_minutes: number;
 }
 
+/** Inbound JSON body for POST /v1/gigs/claim */
+export interface ClaimGigPayload {
+  gig_id: string;
+  worker_pubkey: string;
+}
+
 // ---------------------------------------------------------------------------
 // Database Records
 // ---------------------------------------------------------------------------
@@ -48,6 +57,7 @@ export type GigStatus =
 export interface GigRecord {
   gig_id: string;
   buyer_pubkey: string;
+  worker_pubkey?: string;
   task_type: string;
   payload_json: string;
   bounty_sats: number;

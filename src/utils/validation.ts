@@ -5,7 +5,7 @@
  * JSON response construction.
  */
 
-import type { CreateGigPayload } from '../types';
+import type { CreateGigPayload, ClaimGigPayload } from '../types';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -109,6 +109,38 @@ export function validateCreateGigPayload(
 
   return {
     data: obj as unknown as CreateGigPayload,
+    errors: [] as never[],
+  };
+}
+
+/**
+ * Validates the raw parsed body against the ClaimGigPayload schema.
+ */
+export function validateClaimGigPayload(
+  body: unknown
+): { data: ClaimGigPayload; errors: never[] } | { data: null; errors: ValidationError[] } {
+  const errors: ValidationError[] = [];
+
+  if (!body || typeof body !== 'object') {
+    return { data: null, errors: [{ field: 'body', message: 'Request body must be a JSON object' }] };
+  }
+
+  const obj = body as Record<string, unknown>;
+
+  if (typeof obj.gig_id !== 'string' || obj.gig_id.trim().length === 0) {
+    errors.push({ field: 'gig_id', message: 'Must be a non-empty string' });
+  }
+
+  if (typeof obj.worker_pubkey !== 'string' || obj.worker_pubkey.trim().length === 0) {
+    errors.push({ field: 'worker_pubkey', message: 'Must be a non-empty string (hex-encoded public key)' });
+  }
+
+  if (errors.length > 0) {
+    return { data: null, errors };
+  }
+
+  return {
+    data: obj as unknown as ClaimGigPayload,
     errors: [] as never[],
   };
 }

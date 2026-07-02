@@ -9,6 +9,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env, GigRecord } from './types';
 import { handleCreateGig } from './handlers/create-gig';
+import { handleClaimGig } from './handlers/claim-gig';
 import { jsonResponse, errorResponse } from './utils/validation';
 
 import { paymentMiddleware, x402ResourceServer } from '@x402/hono';
@@ -63,6 +64,18 @@ app.use('/v1/gigs/create', async (c, next) => {
 // Create gig (protected by x402)
 app.post('/v1/gigs/create', handleCreateGig);
 
+// Claim gig
+app.post('/v1/gigs/claim', handleClaimGig);
+
+// WebSocket tunnel for a gig
+app.get('/v1/gigs/:id/tunnel', (c) => {
+  const env = c.env;
+  const id = c.req.param('id');
+  const doId = env.TUNNEL.idFromName(id);
+  const stub = env.TUNNEL.get(doId);
+  return stub.fetch(c.req.raw);
+});
+
 // List active gigs (public)
 app.get('/v1/gigs/active', async (c) => {
   const env = c.env;
@@ -112,3 +125,4 @@ app.notFound((c) => {
 });
 
 export default app;
+export { GigTunnel } from './do/gig-tunnel';

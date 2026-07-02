@@ -16,3 +16,11 @@ database_id = "LOCAL_DB_ID"
 #   OPENAI_API_KEY
 #   X402_PAY_TO
 
+# Durable Object Binding
+[[durable_objects.bindings]]
+name = "TUNNEL"
+class_name = "GigTunnel"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["GigTunnel"]

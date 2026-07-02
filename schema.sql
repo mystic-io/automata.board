@@ -2,14 +2,15 @@
 -- Target: Cloudflare D1 (SQLite)
 
 CREATE TABLE IF NOT EXISTS agent_gigs (
-    gig_id       TEXT PRIMARY KEY,
-    buyer_pubkey TEXT NOT NULL,
-    task_type    TEXT NOT NULL,
-    payload_json TEXT NOT NULL,
-    bounty_sats  INTEGER NOT NULL,
-    status       TEXT NOT NULL CHECK(status IN ('PENDING_PAYMENT', 'ACTIVE', 'IN_PROGRESS', 'COMPLETED', 'EXPIRED')),
-    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at   TIMESTAMP NOT NULL
+    gig_id        TEXT PRIMARY KEY,
+    buyer_pubkey  TEXT NOT NULL,
+    worker_pubkey TEXT,
+    task_type     TEXT NOT NULL,
+    payload_json  TEXT NOT NULL,
+    bounty_sats   INTEGER NOT NULL,
+    status        TEXT NOT NULL CHECK(status IN ('PENDING_PAYMENT', 'ACTIVE', 'IN_PROGRESS', 'COMPLETED', 'EXPIRED')),
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at    TIMESTAMP NOT NULL
 );
 
 -- Index for the primary polling query: GET /v1/gigs/active
