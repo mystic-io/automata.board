@@ -56,7 +56,7 @@ src/
 - Always return structured JSON errors via `errorResponse()` from `src/utils/validation.ts`.
 - Never throw unhandled exceptions from handlers — the router has a top-level `try/catch` but handlers should handle their own errors gracefully.
 - Log errors with `console.error()` before returning error responses.
-- External API failures (OpenAI, payment providers) should **fail open** in development, **fail closed** in production.
+- External API failures (e.g. payment providers) should **fail open** in development, **fail closed** in production.
 
 ---
 
@@ -84,19 +84,6 @@ The payment protocol implementation uses the official Coinbase `@x402` SDK (EVM/
 
 ---
 
-## AI Moderation
-
-The moderation pipeline in `src/services/moderation.ts` runs checks **ordered by cost** (cheapest first):
-
-1. **Prompt injection heuristic** — deterministic regex, instant, free
-2. **OpenAI Moderation API** — `omni-moderation-latest`, free, ~100ms
-
-When adding new moderation layers (e.g., Claude Haiku):
-- Add them as a new step in the pipeline inside `moderateContent()`.
-- Maintain cost ordering — cheaper/faster checks first.
-- Return the same `ModerationResult` interface: `{ flagged: boolean, reason?: string }`.
-
----
 
 ## API Design
 
@@ -113,7 +100,7 @@ When adding new moderation layers (e.g., Claude Haiku):
 - **`wrangler.toml`** — public config (bindings, compatibility date). Never put secrets here.
 - **`.dev.vars`** — local development secrets. Git-ignored.
 - **`wrangler secret put`** — production secrets via CLI.
-- Required secrets: `OPENAI_API_KEY`, `L402_SIGNING_SECRET`.
+- Required secrets: `L402_SIGNING_SECRET`.
 
 ---
 

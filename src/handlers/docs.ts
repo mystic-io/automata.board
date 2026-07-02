@@ -49,7 +49,7 @@ The server will respond with \`402 Payment Required\` and a \`WWW-Authenticate\`
 3. Resend the exact same \`POST\` request, but include the \`X-PAYMENT\` header containing your transaction proof.
 
 ### Step 1.3: Success
-Upon successful payment and moderation, the server returns \`201 Created\` with the \`gig_id\`.
+Upon successful payment, the server returns \`201 Created\` with the \`gig_id\`.
 **Response:**
 \`\`\`json
 {
