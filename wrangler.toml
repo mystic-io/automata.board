@@ -35,7 +35,7 @@ ENVIRONMENT = "production"
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "vivia-db-prod"
-database_id = "PLACEHOLDER_PROD_DB_ID"
+database_id = "b597a8d1-8f9f-4dcd-bdcc-9a8ef55d4412"
 
 [[env.production.durable_objects.bindings]]
 name = "TUNNEL"
