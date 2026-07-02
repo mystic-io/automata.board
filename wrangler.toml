@@ -10,7 +10,7 @@ ENVIRONMENT = "development"
 [[d1_databases]]
 binding = "DB"
 database_name = "vivia-db"
-database_id = "LOCAL_DB_ID"
+database_id = "00000000-0000-0000-0000-000000000000"
 
 # Secrets (set via `wrangler secret put`):
 #   X402_PAY_TO

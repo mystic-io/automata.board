@@ -28,9 +28,15 @@ export async function handleCreateGig(
   // Step 1: Parse & Validate
   // -----------------------------------------------------------------------
 
+  // Safely limit body size to 1MB before JSON parsing
+  const rawText = await c.req.text();
+  if (rawText.length > 1024 * 1024) {
+    return errorResponse('Payload too large', 413);
+  }
+
   let body: unknown;
   try {
-    body = await c.req.json();
+    body = JSON.parse(rawText);
   } catch {
     return errorResponse('Invalid JSON in request body', 400);
   }

@@ -43,6 +43,11 @@ const resourceServer = new x402ResourceServer(facilitatorClient)
 
 // Apply payment middleware to /v1/gigs/create
 app.use('/v1/gigs/create', async (c, next) => {
+  if (!c.env.X402_PAY_TO) {
+    console.error('CRITICAL: X402_PAY_TO secret is missing');
+    return errorResponse('Payment configuration error', 500);
+  }
+
   const middleware = paymentMiddleware(
     {
       'POST /v1/gigs/create': {
@@ -75,9 +80,19 @@ app.post('/v1/gigs/create', handleCreateGig);
 app.post('/v1/gigs/claim', handleClaimGig);
 
 // WebSocket tunnel for a gig
-app.get('/v1/gigs/:id/tunnel', (c) => {
+app.get('/v1/gigs/:id/tunnel', async (c) => {
   const env = c.env;
   const id = c.req.param('id');
+  
+  // Verify gig exists and is active/in-progress
+  const gig = await env.DB.prepare(
+    `SELECT status FROM agent_gigs WHERE gig_id = ? AND status IN ('ACTIVE', 'IN_PROGRESS')`
+  ).bind(id).first();
+  
+  if (!gig) {
+    return errorResponse('Gig not found or closed', 404);
+  }
+
   const doId = env.TUNNEL.idFromName(id);
   const stub = env.TUNNEL.get(doId);
   return stub.fetch(c.req.raw);
@@ -90,8 +105,8 @@ app.get('/v1/gigs/discover', async (c) => {
     const result = await env.DB.prepare(
       `SELECT gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, created_at, expires_at
        FROM agent_gigs
-       WHERE status = 'ACTIVE' AND expires_at > datetime('now')
-       ORDER BY created_at DESC
+       WHERE status = 'ACTIVE' AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+       ORDER BY expires_at DESC
        LIMIT 100`
     ).all<GigRecord>();
 
@@ -108,6 +123,14 @@ app.get('/v1/gigs/discover', async (c) => {
 // ---------------------------------------------------------------------------
 // MCP Server
 // ---------------------------------------------------------------------------
+app.use('/mcp/*', async (c, next) => {
+  const auth = c.req.header('Authorization');
+  if (auth !== `Bearer ${c.env.MCP_API_KEY}`) {
+    return errorResponse('Unauthorized MCP access', 401);
+  }
+  return next();
+});
+
 app.all('/mcp/*', async (c) => {
   const server = new McpServer({
     name: "vivia-mcp",
@@ -124,8 +147,8 @@ app.all('/mcp/*', async (c) => {
         const result = await c.env.DB.prepare(
           `SELECT gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, created_at, expires_at
            FROM agent_gigs
-           WHERE status = 'ACTIVE' AND expires_at > datetime('now')
-           ORDER BY created_at DESC
+           WHERE status = 'ACTIVE' AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+           ORDER BY expires_at DESC
            LIMIT 100`
         ).all<GigRecord>();
 
@@ -170,7 +193,7 @@ app.get('/', async (c) => {
   
   try {
     const result = await env.DB.prepare(
-      `SELECT COUNT(*) as count FROM agent_gigs WHERE status = 'ACTIVE' AND expires_at > datetime('now')`
+      `SELECT COUNT(*) as count FROM agent_gigs WHERE status = 'ACTIVE' AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
     ).first<{ count: number }>();
     if (result) {
       activeBountiesCount = result.count;
@@ -203,10 +226,11 @@ app.get('/health', healthCheck);
 // Global error handler
 app.onError((err, c) => {
   console.error('Unhandled error:', err);
+  const isDev = c.env.ENVIRONMENT === 'development';
   return errorResponse(
     'Internal server error',
     500,
-    err instanceof Error ? { message: err.message } : undefined
+    isDev && err instanceof Error ? { message: err.message } : undefined
   );
 });
 
@@ -224,7 +248,7 @@ export default {
         `UPDATE agent_gigs 
          SET status = 'EXPIRED' 
          WHERE status IN ('ACTIVE', 'PENDING_PAYMENT') 
-         AND expires_at <= datetime('now')`
+         AND expires_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
       ).run();
       
       console.log(`Cron soft-deleted expired tasks. Rows updated: ${expireResult.meta.changes}`);
@@ -233,7 +257,7 @@ export default {
       const pruneResult = await env.DB.prepare(
         `DELETE FROM agent_gigs 
          WHERE status IN ('PENDING_PAYMENT', 'ACTIVE', 'EXPIRED') 
-         AND created_at <= datetime('now', '-2 hours')`
+         AND created_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-2 hours')`
       ).run();
 
       console.log(`Cron hard-pruned old tasks. Rows deleted: ${pruneResult.meta.changes}`);

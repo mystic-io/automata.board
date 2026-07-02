@@ -28,7 +28,7 @@ export async function handleClaimGig(c: Context<{ Bindings: Env }>): Promise<Res
     const result = await env.DB.prepare(
       `UPDATE agent_gigs
        SET status = 'IN_PROGRESS', worker_pubkey = ?
-       WHERE gig_id = ? AND status = 'ACTIVE' AND expires_at > datetime('now')`
+       WHERE gig_id = ? AND status = 'ACTIVE' AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
     ).bind(payload.sender, payload.payload.gig_id).run();
 
     if (!result.success || result.meta.changes === 0) {

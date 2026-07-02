@@ -9,6 +9,16 @@ export class GigTunnel {
   
   constructor(state: DurableObjectState, env: any) {
     this.state = state;
+    // Force hibernation/termination after 2 hours max lifespan
+    this.state.storage.setAlarm(Date.now() + 2 * 60 * 60 * 1000);
+  }
+
+  async alarm() {
+    // Force close all lingering connections
+    const sockets = this.state.getWebSockets();
+    for (const socket of sockets) {
+      socket.close(1011, 'Gig expired');
+    }
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -33,6 +43,10 @@ export class GigTunnel {
   // Durable Object Hibernation API WebSocket handlers
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
     if (typeof message === 'string') {
+      if (message.length > 64 * 1024) {
+        ws.close(1009, 'Message too large');
+        return;
+      }
       try {
         const data = JSON.parse(message);
         // Intercept keepalive ping and respond with pong

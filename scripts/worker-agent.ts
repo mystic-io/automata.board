@@ -30,7 +30,13 @@ async function main() {
 
   // 2. Connect to embedded MCP server for Discovery
   console.log(`\\n🔍 Connecting to MCP server at ${MCP_URL} for discovery...`);
-  const transport = new StreamableHTTPClientTransport(new URL(MCP_URL));
+  const transport = new StreamableHTTPClientTransport(new URL(MCP_URL), {
+    requestInit: {
+      headers: {
+        Authorization: `Bearer ${process.env.MCP_API_KEY || 'test-mcp-key-123'}`,
+      }
+    }
+  });
   const client = new Client(
     { name: "worker-agent", version: "1.0.0" },
     { capabilities: {} }
