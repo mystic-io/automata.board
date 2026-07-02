@@ -66,6 +66,20 @@ export function validateCreateGigPayload(
   } else {
     const payload = obj.payload as Record<string, unknown>;
 
+    if (typeof payload.title !== 'string' || payload.title.trim().length === 0 || payload.title.length > 80) {
+      errors.push({
+        field: 'payload.title',
+        message: 'Must be a string between 1 and 80 characters',
+      });
+    }
+
+    if (typeof payload.description !== 'string' || payload.description.trim().length === 0 || payload.description.length > 500) {
+      errors.push({
+        field: 'payload.description',
+        message: 'Must be a string between 1 and 500 characters',
+      });
+    }
+
     if (typeof payload.task_type !== 'string' || !ALLOWED_TASK_TYPES.has(payload.task_type)) {
       errors.push({
         field: 'payload.task_type',

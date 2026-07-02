@@ -53,6 +53,8 @@ export async function handleCreateGig(
   const gigRecord: GigRecord = {
     gig_id: gigId,
     buyer_pubkey: payload.sender,
+    title: payload.payload.title,
+    description: payload.payload.description,
     task_type: payload.payload.task_type,
     payload_json: JSON.stringify(payload.payload.task_params),
     bounty_sats: payload.payload.bounty_sats,
@@ -63,12 +65,14 @@ export async function handleCreateGig(
 
   try {
     await env.DB.prepare(
-      `INSERT INTO agent_gigs (gig_id, buyer_pubkey, task_type, payload_json, bounty_sats, status, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO agent_gigs (gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, created_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
       .bind(
         gigRecord.gig_id,
         gigRecord.buyer_pubkey,
+        gigRecord.title,
+        gigRecord.description,
         gigRecord.task_type,
         gigRecord.payload_json,
         gigRecord.bounty_sats,

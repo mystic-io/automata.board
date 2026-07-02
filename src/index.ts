@@ -88,7 +88,7 @@ app.get('/v1/gigs/discover', async (c) => {
   const env = c.env;
   try {
     const result = await env.DB.prepare(
-      `SELECT gig_id, buyer_pubkey, task_type, payload_json, bounty_sats, status, created_at, expires_at
+      `SELECT gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, created_at, expires_at
        FROM agent_gigs
        WHERE status = 'ACTIVE' AND expires_at > datetime('now')
        ORDER BY created_at DESC
@@ -122,7 +122,7 @@ app.all('/mcp/*', async (c) => {
     async () => {
       try {
         const result = await c.env.DB.prepare(
-          `SELECT gig_id, buyer_pubkey, task_type, payload_json, bounty_sats, status, created_at, expires_at
+          `SELECT gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, created_at, expires_at
            FROM agent_gigs
            WHERE status = 'ACTIVE' AND expires_at > datetime('now')
            ORDER BY created_at DESC

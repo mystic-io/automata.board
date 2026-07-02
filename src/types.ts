@@ -33,6 +33,8 @@ export interface CreateGigPayload {
   sender: string; // The buyer's public key
   type: 'TaskDelegation';
   payload: {
+    title: string;
+    description: string;
     task_type: string;
     task_params: Record<string, unknown>; // Replaces payload_json
     bounty_sats: number;
@@ -66,6 +68,8 @@ export interface GigRecord {
   gig_id: string;
   buyer_pubkey: string;
   worker_pubkey?: string;
+  title: string;
+  description: string;
   task_type: string;
   payload_json: string;
   bounty_sats: number;
@@ -73,4 +77,3 @@ export interface GigRecord {
   created_at: string;
   expires_at: string;
 }
-

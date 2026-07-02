@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS agent_gigs (
     gig_id        TEXT PRIMARY KEY,
     buyer_pubkey  TEXT NOT NULL,
     worker_pubkey TEXT,
+    title         TEXT NOT NULL,
+    description   TEXT NOT NULL,
     task_type     TEXT NOT NULL,
     payload_json  TEXT NOT NULL,
     bounty_sats   INTEGER NOT NULL,
