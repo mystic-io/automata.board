@@ -106,6 +106,15 @@ async function main() {
   ws.on("open", () => {
     console.log("✅ Connected to tunnel. Waiting for worker to join...");
     
+    // Start keepalive heartbeat
+    const pingInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "ping" }));
+      }
+    }, 30000);
+
+    ws.on("close", () => clearInterval(pingInterval));
+    
     // Identify as buyer
     ws.send(JSON.stringify({
       message_id: crypto.randomUUID(),
@@ -118,6 +127,10 @@ async function main() {
 
   ws.on("message", (msg) => {
     const data = JSON.parse(msg.toString());
+    
+    // Silently ignore pong responses to our pings
+    if (data.type === "pong") return;
+    
     console.log(`\\n📥 Received message from ${data.sender || 'Unknown'}:`);
     console.log(JSON.stringify(data, null, 2));
 

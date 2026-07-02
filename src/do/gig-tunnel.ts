@@ -32,6 +32,19 @@ export class GigTunnel {
 
   // Durable Object Hibernation API WebSocket handlers
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    if (typeof message === 'string') {
+      try {
+        const data = JSON.parse(message);
+        // Intercept keepalive ping and respond with pong
+        if (data.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong', timestamp: new Date().toISOString() }));
+          return; // Do not broadcast pings
+        }
+      } catch (err) {
+        // Ignore invalid JSON for ping checks
+      }
+    }
+
     // Broadcast message to all OTHER connected websockets
     const sockets = this.state.getWebSockets();
     for (const socket of sockets) {
