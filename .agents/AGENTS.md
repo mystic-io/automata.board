@@ -60,15 +60,17 @@ src/
 
 ---
 
-## L402 / x402 Protocol
+## x402 Protocol (Coinbase EVM)
 
-The L402 implementation lives in `src/services/l402.ts`. Key constraints:
+The payment protocol implementation uses the official Coinbase `@x402` SDK (EVM/USDC-based), replacing the previous L402 Lightning mock.
 
-- **Macaroon format:** `Base64(JSON({ identifier, paymentHash, signature }))` where signature = `HMAC-SHA256(identifier + paymentHash, L402_SIGNING_SECRET)`.
-- **Challenge header:** `WWW-Authenticate: L402 macaroon="<base64>", invoice="<bolt11>"` — note the field names are `macaroon` and `invoice` per the L402 spec.
-- **Auth header:** `Authorization: L402 <base64(macaroon)>:<hex(preimage)>` — colon-separated, no spaces.
-- **Verification:** Always check both HMAC signature validity AND `SHA256(preimage) === paymentHash`.
-- The current implementation uses **mock macaroons** (HMAC-based). When integrating real Lightning (Aperture/LND), replace only the internals of `generateChallenge()` and `verifyAuthorization()` — the handler interface must not change.
+- **Middleware:** `src/index.ts` uses Hono's `paymentMiddleware` from `@x402/hono` to wrap protected routes.
+- **Header Flow:** 
+  - If unpaid, the middleware intercepts and returns an HTTP `402 Payment Required` with a `PAYMENT-REQUIRED` header containing the Base64-encoded payment challenge (includes scheme, price, network `eip155:84532`, and `payTo` address).
+  - The client signs an EVM transaction and sends a `X-PAYMENT` header.
+  - The middleware verifies the transaction on-chain via the x402 Facilitator before passing control to the handler.
+- **Networks:** Currently configured for Base Sepolia testnet (`eip155:84532`) using a public facilitator (`https://x402.org/facilitator`).
+- **Handler Impact:** Handlers like `create-gig.ts` do not contain payment verification logic. If the handler executes, the request has already been paid for.
 
 ---
 

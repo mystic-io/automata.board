@@ -16,8 +16,8 @@ export interface Env {
   /** OpenAI API key for moderation endpoint */
   OPENAI_API_KEY: string;
 
-  /** HMAC secret for signing/verifying L402 macaroons */
-  L402_SIGNING_SECRET: string;
+  /** x402 payment destination address */
+  X402_PAY_TO: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -64,21 +64,4 @@ export interface GigRecord {
 export interface ModerationResult {
   flagged: boolean;
   reason?: string;
-}
-
-/** L402 challenge components returned to the client */
-export interface L402Challenge {
-  /** Base64-encoded mock macaroon */
-  macaroon: string;
-  /** Mock BOLT11-style invoice string */
-  invoice: string;
-  /** Formatted WWW-Authenticate header value */
-  headerValue: string;
-}
-
-/** Decoded macaroon payload for verification */
-export interface MacaroonPayload {
-  identifier: string;
-  paymentHash: string;
-  signature: string;
 }

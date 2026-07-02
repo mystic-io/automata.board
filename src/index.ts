@@ -1,85 +1,71 @@
 /**
  * Vivia MVP — Main Worker Entrypoint
  *
- * Lightweight router for the Vivia API. Dispatches requests
- * to modular handlers and provides top-level error handling.
- *
- * Routes:
- *   POST   /v1/gigs/create  → Create a new gig (L402 paywall)
- *   GET    /v1/gigs/active   → List active gigs (MCP-compatible)
- *   OPTIONS *                → CORS preflight
+ * Lightweight router for the Vivia API using Hono.
+ * Integrates x402 payment middleware for the paywall.
  */
 
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import type { Env, GigRecord } from './types';
 import { handleCreateGig } from './handlers/create-gig';
 import { jsonResponse, errorResponse } from './utils/validation';
 
+import { paymentMiddleware, x402ResourceServer } from '@x402/hono';
+import { ExactEvmScheme } from '@x402/evm/exact/server';
+import { HTTPFacilitatorClient } from '@x402/core/server';
+
+const app = new Hono<{ Bindings: Env }>();
+
 // ---------------------------------------------------------------------------
-// Router
+// Middleware
 // ---------------------------------------------------------------------------
 
-export default {
-  async fetch(
-    request: Request,
-    env: Env,
-    _ctx: ExecutionContext
-  ): Promise<Response> {
-    const url = new URL(request.url);
-    const { pathname } = url;
-    const method = request.method.toUpperCase();
+// CORS preflight
+app.use('*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-PAYMENT'],
+  maxAge: 86400,
+}));
 
-    // CORS preflight
-    if (method === 'OPTIONS') {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          'Access-Control-Max-Age': '86400',
+// Configure x402 Facilitator & Resource Server
+// For testing, we use the public x402 facilitator. For production, switch to CDP.
+const facilitatorClient = new HTTPFacilitatorClient({
+  url: 'https://x402.org/facilitator',
+});
+const resourceServer = new x402ResourceServer(facilitatorClient)
+  .register('eip155:84532', new ExactEvmScheme());
+
+// Apply payment middleware to /v1/gigs/create
+app.use('/v1/gigs/create', async (c, next) => {
+  const middleware = paymentMiddleware(
+    {
+      'POST /v1/gigs/create': {
+        accepts: {
+          scheme: 'exact',
+          price: '$0.001', // Small USDC test amount
+          network: 'eip155:84532', // Base Sepolia
+          payTo: c.env.X402_PAY_TO, // Dynamic from env
         },
-      });
-    }
-
-    try {
-      // ─── POST /v1/gigs/create ───────────────────────────────────────
-      if (method === 'POST' && pathname === '/v1/gigs/create') {
-        return await handleCreateGig(request, env);
-      }
-
-      // ─── GET /v1/gigs/active ────────────────────────────────────────
-      if (method === 'GET' && pathname === '/v1/gigs/active') {
-        return await handleListActiveGigs(env);
-      }
-
-      // ─── Health check ───────────────────────────────────────────────
-      if (method === 'GET' && (pathname === '/' || pathname === '/health')) {
-        return jsonResponse({
-          service: 'vivia-api',
-          version: '0.1.0',
-          status: 'operational',
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      // ─── 404 ───────────────────────────────────────────────────────
-      return errorResponse(`Route not found: ${method} ${pathname}`, 404);
-    } catch (err) {
-      console.error('Unhandled error:', err);
-      return errorResponse(
-        'Internal server error',
-        500,
-        err instanceof Error ? { message: err.message } : undefined
-      );
-    }
-  },
-} satisfies ExportedHandler<Env>;
+        description: 'Post a gig to the Vivia network',
+      },
+    },
+    resourceServer
+  );
+  return middleware(c, next);
+});
 
 // ---------------------------------------------------------------------------
-// GET /v1/gigs/active — Public board for MCP-compatible agent polling
+// Routes
 // ---------------------------------------------------------------------------
 
-async function handleListActiveGigs(env: Env): Promise<Response> {
+// Create gig (protected by x402)
+app.post('/v1/gigs/create', handleCreateGig);
+
+// List active gigs (public)
+app.get('/v1/gigs/active', async (c) => {
+  const env = c.env;
   try {
     const result = await env.DB.prepare(
       `SELECT gig_id, buyer_pubkey, task_type, payload_json, bounty_sats, status, created_at, expires_at
@@ -97,4 +83,32 @@ async function handleListActiveGigs(env: Env): Promise<Response> {
     console.error('D1 query error:', err);
     return errorResponse('Failed to fetch active gigs', 500);
   }
-}
+});
+
+// Health checks
+const healthCheck = () => jsonResponse({
+  service: 'vivia-api',
+  version: '0.1.0',
+  status: 'operational',
+  timestamp: new Date().toISOString(),
+});
+
+app.get('/', healthCheck);
+app.get('/health', healthCheck);
+
+// Global error handler
+app.onError((err, c) => {
+  console.error('Unhandled error:', err);
+  return errorResponse(
+    'Internal server error',
+    500,
+    err instanceof Error ? { message: err.message } : undefined
+  );
+});
+
+// 404 handler
+app.notFound((c) => {
+  return errorResponse(`Route not found: ${c.req.method} ${c.req.path}`, 404);
+});
+
+export default app;

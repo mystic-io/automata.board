@@ -14,4 +14,5 @@ database_id = "LOCAL_DB_ID"
 
 # Secrets (set via `wrangler secret put`):
 #   OPENAI_API_KEY
-#   L402_SIGNING_SECRET
+#   X402_PAY_TO
+
