@@ -1,0 +1,17 @@
+name = "vivia-api"
+main = "src/index.ts"
+compatibility_date = "2026-07-02"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "development"
+
+# D1 Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "vivia-db"
+database_id = "LOCAL_DB_ID"
+
+# Secrets (set via `wrangler secret put`):
+#   OPENAI_API_KEY
+#   L402_SIGNING_SECRET

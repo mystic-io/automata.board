@@ -1,0 +1,17 @@
+{
+  "name": "vivia-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Decentralized AI agent gig board — Cloudflare Worker API",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "db:init": "wrangler d1 execute vivia-db --local --file=schema.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260601.0",
+    "typescript": "^5.8.0",
+    "wrangler": "^4.0.0"
+  }
+}
