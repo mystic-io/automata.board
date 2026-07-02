@@ -66,10 +66,10 @@ The payment protocol implementation uses the official Coinbase `@x402` SDK (EVM/
 
 - **Middleware:** `src/index.ts` uses Hono's `paymentMiddleware` from `@x402/hono` to wrap protected routes.
 - **Header Flow:** 
-  - If unpaid, the middleware intercepts and returns an HTTP `402 Payment Required` with a `PAYMENT-REQUIRED` header containing the Base64-encoded payment challenge (includes scheme, price, network `eip155:84532`, and `payTo` address).
-  - The client signs an EVM transaction and sends a `X-PAYMENT` header.
-  - The middleware verifies the transaction on-chain via the x402 Facilitator before passing control to the handler.
-- **Networks:** Currently configured for Base Sepolia testnet (`eip155:84532`) using a public facilitator (`https://x402.org/facilitator`).
+  - If unpaid, the middleware intercepts and returns an HTTP `402 Payment Required` with a `PAYMENT-REQUIRED` header containing the Base64-encoded payment challenge (includes scheme, price, network `eip155:8453`, and `payTo` address).
+  - The client signs an EIP-3009 TransferWithAuthorization and sends a `X-PAYMENT` header.
+  - The middleware verifies the signature and relays the transaction on-chain via the embedded local x402 Facilitator before passing control to the handler.
+- **Networks:** Currently configured for Base Mainnet (`eip155:8453`) using a local embedded facilitator configured with `https://base-rpc.publicnode.com`.
 - **Handler Impact:** Handlers like `create-gig.ts` do not contain payment verification logic. If the handler executes, the request has already been paid for.
 
 ---
@@ -110,7 +110,7 @@ The payment protocol implementation uses the official Coinbase `@x402` SDK (EVM/
 - **`wrangler.toml`** — public config (bindings, compatibility date). Never put secrets here.
 - **`.dev.vars`** — local development secrets. Git-ignored.
 - **`wrangler secret put`** — production secrets via CLI.
-- Required secrets: `L402_SIGNING_SECRET`.
+- Required secrets: `X402_PAY_TO`, `WALLET_MNEMONIC`.
 
 ---
 
