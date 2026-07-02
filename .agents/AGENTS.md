@@ -87,6 +87,7 @@ The payment protocol implementation uses the official Coinbase `@x402` SDK (EVM/
 
 ## API Design
 
+- **A2A Protocol Standards:** All task delegation (create/claim) and tunnel messaging MUST conform to the Linux Foundation's Agent2Agent (A2A) Message Envelope standard. The root endpoint (`GET /`) serves the canonical A2A Agent Card.
 - All endpoints are versioned under `/v1/`.
 - Responses always include CORS headers (configured in `src/utils/validation.ts`).
 - Success responses: `{ message: string, ...data }`.
