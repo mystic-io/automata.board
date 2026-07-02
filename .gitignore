@@ -26,3 +26,5 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+cdp_api_key.json
+.wrangler/
