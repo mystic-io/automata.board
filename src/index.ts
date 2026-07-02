@@ -48,7 +48,7 @@ app.use('/v1/gigs/create', async (c, next) => {
       'POST /v1/gigs/create': {
         accepts: {
           scheme: 'exact',
-          price: '$0.001', // Small USDC test amount
+          price: '$0.5',
           network: 'eip155:84532', // Base Sepolia
           payTo: c.env.X402_PAY_TO, // Dynamic from env
         },
