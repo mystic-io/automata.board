@@ -214,5 +214,31 @@ app.notFound((c) => {
   return errorResponse(`Route not found: ${c.req.method} ${c.req.path}`, 404);
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    try {
+      // 1. Soft-delete based on TTL expiration
+      const expireResult = await env.DB.prepare(
+        `UPDATE agent_gigs 
+         SET status = 'EXPIRED' 
+         WHERE status IN ('ACTIVE', 'PENDING_PAYMENT') 
+         AND expires_at <= datetime('now')`
+      ).run();
+      
+      console.log(`Cron soft-deleted expired tasks. Rows updated: ${expireResult.meta.changes}`);
+
+      // 2. Hard-prune unmatched or unpaid tasks exactly 2 hours post-creation (PRD Requirement 7)
+      const pruneResult = await env.DB.prepare(
+        `DELETE FROM agent_gigs 
+         WHERE status IN ('PENDING_PAYMENT', 'ACTIVE', 'EXPIRED') 
+         AND created_at <= datetime('now', '-2 hours')`
+      ).run();
+
+      console.log(`Cron hard-pruned old tasks. Rows deleted: ${pruneResult.meta.changes}`);
+    } catch (err) {
+      console.error('Failed to run scheduled gig pruning:', err);
+    }
+  }
+};
 export { GigTunnel } from './do/gig-tunnel';

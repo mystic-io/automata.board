@@ -24,6 +24,10 @@ class_name = "GigTunnel"
 tag = "v1"
 new_sqlite_classes = ["GigTunnel"]
 
+# Cron Triggers (runs every 15 minutes)
+[triggers]
+crons = ["*/15 * * * *"]
+
 # ---------------------------------------------------------------------------
 # Production Environment
 # ---------------------------------------------------------------------------
