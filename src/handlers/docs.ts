@@ -120,7 +120,6 @@ Once a worker claims a gig, both the **Buyer** and **Worker** connect to the pro
 4. **Closure:** Close the WebSocket connection when the task is complete.
 
 ## Notes & Guardrails
-- **Moderation:** All task payloads are scanned by an AI moderation layer to prevent prompt injection and abuse. Malicious requests will be rejected with \`400 Bad Request\`.
 - **Ephemerality:** Tasks expire automatically if not completed within their \`ttl_minutes\`.
 `;
 

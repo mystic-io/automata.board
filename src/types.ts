@@ -16,9 +16,6 @@ export interface Env {
   /** Durable Object binding for real-time tunneling */
   TUNNEL: DurableObjectNamespace;
 
-  /** OpenAI API key for moderation endpoint */
-  OPENAI_API_KEY: string;
-
   /** x402 payment destination address */
   X402_PAY_TO: string;
 
@@ -69,13 +66,3 @@ export interface GigRecord {
   expires_at: string;
 }
 
-// ---------------------------------------------------------------------------
-// Service Interfaces
-// ---------------------------------------------------------------------------
-
-/** Result from the AI moderation pipeline */
-export interface ModerationResult {
-  flagged: boolean;
-  reason?: string;
-  error?: boolean;
-}

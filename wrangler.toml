@@ -13,7 +13,6 @@ database_name = "vivia-db"
 database_id = "LOCAL_DB_ID"
 
 # Secrets (set via `wrangler secret put`):
-#   OPENAI_API_KEY
 #   X402_PAY_TO
 
 # Durable Object Binding

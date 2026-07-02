@@ -14,7 +14,6 @@
 
 import type { Env, GigRecord } from '../types';
 import { validateCreateGigPayload, jsonResponse, errorResponse } from '../utils/validation';
-import { moderateContent } from '../services/moderation';
 import type { Context } from 'hono';
 
 /**
@@ -44,32 +43,7 @@ export async function handleCreateGig(
   const payload = validation.data!;
 
   // -----------------------------------------------------------------------
-  // Step 2: AI Moderation Gate
-  // -----------------------------------------------------------------------
-
-  const moderation = await moderateContent(
-    payload.task_type,
-    payload.payload_json,
-    env.OPENAI_API_KEY,
-    env.ENVIRONMENT || 'development'
-  );
-
-  if (moderation.error) {
-    return errorResponse(
-      `Moderation service failed: ${moderation.reason}`,
-      503
-    );
-  }
-
-  if (moderation.flagged) {
-    return errorResponse(
-      `Content rejected by moderation: ${moderation.reason}`,
-      400
-    );
-  }
-
-  // -----------------------------------------------------------------------
-  // Step 3: Write to D1
+  // Step 2: Write to D1
   // -----------------------------------------------------------------------
 
   const gigId = crypto.randomUUID();
