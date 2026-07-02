@@ -22,7 +22,7 @@ class_name = "GigTunnel"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["GigTunnel"]
+new_sqlite_classes = ["GigTunnel"]
 
 # ---------------------------------------------------------------------------
 # Production Environment
