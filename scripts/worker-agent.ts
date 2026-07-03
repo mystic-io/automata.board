@@ -3,7 +3,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import EventSource from "eventsource";
 import WebSocket from "ws";
 import { config } from "dotenv";
-import { createWalletClient, http } from "viem";
+import { createWalletClient, http, fallback } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
 import { base } from "viem/chains";
 
@@ -25,7 +25,11 @@ const account = mnemonicToAccount(MNEMONIC, { accountIndex: 1 });
 const walletClient = createWalletClient({
   account,
   chain: base,
-  transport: http("https://mainnet.base.org"),
+  transport: fallback([
+    http("https://base-rpc.publicnode.com"),
+    http("https://gateway.tenderly.co/public/base"),
+    http("https://base-mainnet.public.blastapi.io"),
+  ]),
 });
 
 async function main() {

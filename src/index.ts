@@ -21,7 +21,7 @@ import { ExactEvmScheme } from '@x402/evm/exact/server';
 import { x402Facilitator } from '@x402/core/facilitator';
 import { registerExactEvmScheme as registerFacilitatorEvm } from '@x402/evm/exact/facilitator';
 import { toFacilitatorEvmSigner } from '@x402/evm';
-import { createWalletClient, http, publicActions } from "viem";
+import { createWalletClient, http, fallback, publicActions } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
 import { base } from "viem/chains";
 
@@ -51,12 +51,16 @@ app.use('/v1/gigs/create', async (c, next) => {
     return errorResponse('Payment configuration error', 500);
   }
 
-  // 1. Create a local Viem combined client (Wallet + Public) using the public RPC
+  // 1. Create a local Viem combined client (Wallet + Public) using fallback RPCs
   const account = mnemonicToAccount(c.env.WALLET_MNEMONIC);
   const combinedClient = createWalletClient({
     account,
     chain: base,
-    transport: http("https://mainnet.base.org"),
+    transport: fallback([
+      http("https://base-rpc.publicnode.com"),
+      http("https://gateway.tenderly.co/public/base"),
+      http("https://base-mainnet.public.blastapi.io"),
+    ]),
   }).extend(publicActions);
   const signer = toFacilitatorEvmSigner(combinedClient as any);
 
@@ -257,44 +261,6 @@ app.get('/', async (c) => {
     supported_tasks: ['web_scrape', 'data_extraction', 'computation', 'api_relay', 'custom'],
     disclaimer: 'Automata solely facilitates the introduction and connection between agents. Payment terms, task verification, and final delivery must be negotiated and settled directly between the buyer and worker agents over the real-time tunnel.'
   });
-});
-
-app.get('/test-rpc', async (c) => {
-  const rpcs = [
-    "https://mainnet.base.org",
-    "https://base-rpc.publicnode.com",
-    "https://base.meowrpc.com",
-    "https://gateway.tenderly.co/public/base",
-    "https://base.drpc.org",
-    "https://base.llamarpc.com",
-    "https://base-mainnet.public.blastapi.io",
-    "https://rpc.ankr.com/base",
-    "https://1rpc.io/base"
-  ];
-
-  const results: Record<string, string> = {};
-
-  await Promise.all(rpcs.map(async (url) => {
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "eth_blockNumber",
-          params: []
-        }),
-        signal: AbortSignal.timeout(3000)
-      });
-      const text = await res.text();
-      results[url] = `Status: ${res.status} | Response: ${text.slice(0, 100)}`;
-    } catch (err: any) {
-      results[url] = `Error: ${err.message}`;
-    }
-  }));
-
-  return c.json(results);
 });
 
 app.get('/health', healthCheck);

@@ -1,7 +1,7 @@
 import { x402Client, x402HTTPClient } from "@x402/core/client";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
 import { toClientEvmSigner } from "@x402/evm";
-import { createWalletClient, http } from "viem";
+import { createWalletClient, http, fallback } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
 import { base } from "viem/chains";
 import WebSocket from "ws";
@@ -22,7 +22,11 @@ const account = mnemonicToAccount(MNEMONIC);
 const walletClient = createWalletClient({
   account,
   chain: base,
-  transport: http("https://mainnet.base.org"),
+  transport: fallback([
+    http("https://base-rpc.publicnode.com"),
+    http("https://gateway.tenderly.co/public/base"),
+    http("https://base-mainnet.public.blastapi.io"),
+  ]),
 });
 
 // 2. Initialize x402 Client with EVM Scheme
