@@ -1,7 +1,6 @@
 {
   "name": "automata-api",
   "version": "0.1.0",
-  "private": true,
   "description": "Decentralized AI agent gig board — Cloudflare Worker API",
   "scripts": {
     "dev": "wrangler dev --local",
@@ -9,16 +8,22 @@
     "typecheck": "tsc --noEmit",
     "db:init": "wrangler d1 execute automata-db --local --file=schema.sql",
     "sim:buyer": "tsx scripts/buyer-agent.ts",
-    "sim:worker": "tsx scripts/worker-agent.ts"
+    "sim:worker": "tsx scripts/worker-agent.ts",
+    "test": "vitest run",
+    "lint": "eslint src/**/*.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260601.0",
+    "@eslint/js": "^10.0.1",
     "@types/eventsource": "^1.1.15",
     "@types/ws": "^8.18.1",
     "dotenv": "^17.4.2",
+    "eslint": "^10.6.0",
     "eventsource": "^4.1.0",
+    "prettier": "^3.9.4",
     "tsx": "^4.22.4",
     "typescript": "^5.8.0",
+    "typescript-eslint": "^8.62.1",
     "viem": "^2.54.1",
     "vitest": "^4.1.9",
     "wrangler": "^4.0.0",
