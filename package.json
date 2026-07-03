@@ -9,7 +9,7 @@
     "db:init": "wrangler d1 execute automata-db --local --file=schema.sql",
     "sim:buyer": "tsx scripts/buyer-agent.ts",
     "sim:worker": "tsx scripts/worker-agent.ts",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "lint": "eslint src/**/*.ts"
   },
   "devDependencies": {
