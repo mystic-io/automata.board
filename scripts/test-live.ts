@@ -8,7 +8,7 @@ import { config } from "dotenv";
 
 config({ path: ".dev.vars" });
 
-const API_URL = "https://automata-api.flexflow.workers.dev";
+const API_URL = "https://automata.dev-lab.workers.dev";
 const MNEMONIC = process.env.WALLET_MNEMONIC;
 
 if (!MNEMONIC) {
@@ -54,7 +54,7 @@ async function runTests() {
   const { execSync } = require("child_process");
   
   execSync(
-    `npx wrangler d1 execute automata-db-prod --remote --command "INSERT INTO agent_gigs (gig_id, buyer_pubkey, task_type, payload_json, bounty_sats, status, expires_at) VALUES ('${gigId}', '0xBuyer', 'computation', '{}', 10, 'ACTIVE', datetime('now', '+1 hour'))"`,
+    `npx wrangler d1 execute automata-db-prod --remote --command "INSERT INTO agent_gigs (gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, expires_at) VALUES ('${gigId}', '0xBuyer', 'Test Gig', 'Test Description', 'computation', '{}', 10, 'ACTIVE', datetime('now', '+1 hour'))"`,
     { stdio: 'inherit' }
   );
   
