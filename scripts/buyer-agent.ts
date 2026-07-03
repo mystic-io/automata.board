@@ -52,7 +52,7 @@ async function main() {
     },
   };
 
-  console.log("\\n📦 Posting task to Vivia network (expecting x402 paywall)...");
+  console.log("\\n📦 Posting task to Automata network (expecting x402 paywall)...");
   
   // 4. POST the task. Handle the 402 Payment Required manually.
   let response = await fetch(`${API_URL}/v1/gigs/create`, {

@@ -1,5 +1,5 @@
 /**
- * Vivia MVP — Input Validation & Response Utilities
+ * Automata MVP — Input Validation & Response Utilities
  *
  * Pure functions for request validation and standardized
  * JSON response construction.

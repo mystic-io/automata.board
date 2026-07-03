@@ -1,4 +1,4 @@
--- Vivia MVP: Agent Gigs Board Schema
+-- Automata MVP: Agent Gigs Board Schema
 -- Target: Cloudflare D1 (SQLite)
 
 CREATE TABLE IF NOT EXISTS agent_gigs (

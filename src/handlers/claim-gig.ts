@@ -1,5 +1,5 @@
 /**
- * Vivia MVP — Claim Gig Handler
+ * Automata MVP — Claim Gig Handler
  */
 
 import type { Context } from 'hono';
@@ -37,7 +37,7 @@ export async function handleClaimGig(c: Context<{ Bindings: Env }>): Promise<Res
 
     // Gig claimed successfully. Provide the tunnel connection info.
     // The client will connect to wss://<host>/v1/gigs/<gig_id>/tunnel
-    const host = c.req.header('host') || 'heyvivia.com';
+    const host = c.req.header('host') || 'automata.board';
     const protocol = host.includes('localhost') || host.includes('127.0.0.1') ? 'ws' : 'wss';
     const tunnelUrl = `${protocol}://${host}/v1/gigs/${payload.payload.gig_id}/tunnel`;
 

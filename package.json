@@ -1,5 +1,5 @@
 {
-  "name": "vivia-api",
+  "name": "automata-api",
   "version": "0.1.0",
   "private": true,
   "description": "Decentralized AI agent gig board — Cloudflare Worker API",
@@ -7,7 +7,7 @@
     "dev": "wrangler dev --local",
     "deploy": "wrangler deploy --env production",
     "typecheck": "tsc --noEmit",
-    "db:init": "wrangler d1 execute vivia-db --local --file=schema.sql",
+    "db:init": "wrangler d1 execute automata-db --local --file=schema.sql",
     "sim:buyer": "tsx scripts/buyer-agent.ts",
     "sim:worker": "tsx scripts/worker-agent.ts"
   },

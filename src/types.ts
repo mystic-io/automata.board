@@ -1,5 +1,5 @@
 /**
- * Vivia MVP — Shared Type Definitions
+ * Automata MVP — Shared Type Definitions
  *
  * Central type registry for Cloudflare bindings, API payloads,
  * database records, and service interfaces.

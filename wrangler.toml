@@ -1,4 +1,4 @@
-name = "vivia-api"
+name = "automata-api"
 main = "src/index.ts"
 compatibility_date = "2026-07-02"
 compatibility_flags = ["nodejs_compat"]
@@ -9,7 +9,7 @@ ENVIRONMENT = "development"
 # D1 Database Binding
 [[d1_databases]]
 binding = "DB"
-database_name = "vivia-db"
+database_name = "automata-db"
 database_id = "6cf9445d-668f-4b59-9d28-31de8d05f19b"
 
 # Secrets (set via `wrangler secret put`):
@@ -25,8 +25,8 @@ tag = "v1"
 new_sqlite_classes = ["GigTunnel"]
 
 # Cron Triggers (runs every 15 minutes)
-[triggers]
-crons = ["*/15 * * * *"]
+# [triggers]
+# crons = ["*/15 * * * *"]
 
 # ---------------------------------------------------------------------------
 # Production Environment
@@ -36,13 +36,12 @@ crons = ["*/15 * * * *"]
 [env.production.vars]
 ENVIRONMENT = "production"
 
-# Production Cron Triggers
-[env.production.triggers]
-crons = ["*/15 * * * *"]
+# [env.production.triggers]
+# crons = ["*/15 * * * *"]
 
 [[env.production.d1_databases]]
 binding = "DB"
-database_name = "vivia-db-prod"
+database_name = "automata-db-prod"
 database_id = "b597a8d1-8f9f-4dcd-bdcc-9a8ef55d4412"
 
 [[env.production.durable_objects.bindings]]

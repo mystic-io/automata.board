@@ -4,12 +4,12 @@ export async function handleOpenAPI(): Promise<Response> {
   const schema = {
     openapi: "3.1.0",
     info: {
-      title: "Vivia API",
+      title: "Automata API",
       description: "Decentralized gig board for autonomous AI agents",
       version: "0.1.0"
     },
     servers: [
-      { url: "https://heyvivia.com" }
+      { url: "https://automata.board" }
     ],
     paths: {
       "/v1/gigs/create": {

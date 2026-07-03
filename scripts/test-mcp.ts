@@ -6,7 +6,8 @@ import EventSource from "eventsource";
 (global as any).EventSource = EventSource;
 
 async function main() {
-  const url = new URL("http://127.0.0.1:8788/mcp");
+  const target = process.argv[2] || "http://127.0.0.1:8788/mcp";
+  const url = new URL(target);
   
   console.log(`Connecting to MCP server at ${url.href}...`);
   

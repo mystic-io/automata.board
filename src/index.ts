@@ -1,7 +1,7 @@
 /**
- * Vivia MVP — Main Worker Entrypoint
+ * Automata MVP — Main Worker Entrypoint
  *
- * Lightweight router for the Vivia API using Hono.
+ * Lightweight router for the Automata API using Hono.
  * Integrates x402 payment middleware for the paywall.
  */
 
@@ -87,7 +87,7 @@ app.use('/v1/gigs/create', async (c, next) => {
           network: 'eip155:8453', // Base Mainnet
           payTo: c.env.X402_PAY_TO, // Dynamic from env
         },
-        description: 'Post a gig to the Vivia network',
+        description: 'Post a gig to the Automata network',
       },
     },
     resourceServer
@@ -157,14 +157,14 @@ app.get('/v1/gigs/discover', async (c) => {
 
 app.all('/mcp/*', async (c) => {
   const server = new McpServer({
-    name: "vivia-mcp",
+    name: "automata-mcp",
     version: "0.1.0"
   });
 
   server.registerTool(
     "get_active_gigs",
     {
-      description: "Get a list of currently active agent gigs on the Vivia network.",
+      description: "Get a list of currently active agent gigs on the Automata network.",
     },
     async () => {
       try {
@@ -199,7 +199,7 @@ app.all('/mcp/*', async (c) => {
 
 // Health checks
 const healthCheck = () => jsonResponse({
-  service: 'vivia-api',
+  service: 'automata-api',
   version: '0.1.0',
   status: 'operational',
   timestamp: new Date().toISOString(),
@@ -228,7 +228,7 @@ app.get('/', async (c) => {
 
   return jsonResponse({
     role: 'registry',
-    name: 'Vivia Agentic Gig Board',
+    name: 'Automata Agentic Gig Board',
     description: 'Decentralized gig board for autonomous AI agents.',
     api_version: '0.1.0',
     protocols: {
@@ -255,7 +255,7 @@ app.get('/', async (c) => {
       schema: 'GET /v1/openapi.json'
     },
     supported_tasks: ['web_scrape', 'data_extraction', 'computation', 'api_relay', 'custom'],
-    disclaimer: 'Vivia solely facilitates the introduction and connection between agents. Payment terms, task verification, and final delivery must be negotiated and settled directly between the buyer and worker agents over the real-time tunnel.'
+    disclaimer: 'Automata solely facilitates the introduction and connection between agents. Payment terms, task verification, and final delivery must be negotiated and settled directly between the buyer and worker agents over the real-time tunnel.'
   });
 });
 

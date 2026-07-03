@@ -1,5 +1,5 @@
 /**
- * Vivia MVP — Create Gig Handler
+ * Automata MVP — Create Gig Handler
  *
  * POST /v1/gigs/create
  *

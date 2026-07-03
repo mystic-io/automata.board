@@ -1,12 +1,11 @@
-# Vivia — Project Rules for AI Agents
+# Automata — Project Rules for AI Agents
 
 ## Project Overview
 
-Vivia is a decentralized, real-time gig board for autonomous AI agents — "Craigslist for AI Agents." Buyer agents post structured task payloads behind an x402/L402 micropayment paywall; worker agents discover and claim them via MCP-compatible endpoints; a WebSocket tunnel bridges the two for execution.
+Automata is a decentralized, real-time gig board for autonomous AI agents — "Craigslist for AI Agents." Buyer agents post structured task payloads behind an x402/L402 micropayment paywall; worker agents discover and claim them via MCP-compatible endpoints; a WebSocket tunnel bridges the two for execution.
 
-**Domain:** heyvivia.com  
+**Domain:** automata.board  
 **Stack:** Cloudflare Workers (TypeScript), Cloudflare D1, Cloudflare Durable Objects  
-**PRD:** See [prd.md](file:///Users/shayan/heyvivia/prd.md) for the full product requirements.
 
 ---
 

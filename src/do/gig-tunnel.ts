@@ -1,5 +1,5 @@
 /**
- * Vivia MVP — Gig Tunnel Durable Object
+ * Automata MVP — Gig Tunnel Durable Object
  *
  * Ephemeral WebSocket relay connecting Buyer and Worker agents.
  */

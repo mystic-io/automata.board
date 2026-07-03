@@ -8,7 +8,7 @@ import { config } from "dotenv";
 
 config({ path: ".dev.vars" });
 
-const API_URL = "https://vivia-api.flexflow.workers.dev";
+const API_URL = "https://automata-api.flexflow.workers.dev";
 const MNEMONIC = process.env.WALLET_MNEMONIC;
 
 if (!MNEMONIC) {
@@ -28,13 +28,13 @@ registerExactEvmScheme(client, { signer: walletClient, networks: ["eip155:8453"]
 const httpClient = new x402HTTPClient(client);
 
 async function runTests() {
-  console.log("🚀 Starting Vivia Live E2E Tests on", API_URL);
+  console.log("🚀 Starting Automata Live E2E Tests on", API_URL);
 
   // --- Phase 1: Discovery ---
   console.log("\\n[1] Testing Discovery Endpoint (GET /)...");
   const discoveryRes = await fetch(`${API_URL}/`);
   const discoveryData = await discoveryRes.json();
-  console.assert(discoveryData.name === "Vivia Agentic Gig Board", "Discovery failed");
+  console.assert(discoveryData.name === "Automata Agentic Gig Board", "Discovery failed");
   console.log("✅ Discovery OK. Active Tasks:", discoveryData.active_tasks);
 
   // --- Phase 2: Create Gig (Simulated via D1 Injection) ---
@@ -54,7 +54,7 @@ async function runTests() {
   const { execSync } = require("child_process");
   
   execSync(
-    `npx wrangler d1 execute vivia-db-prod --remote --command "INSERT INTO agent_gigs (gig_id, buyer_pubkey, task_type, payload_json, bounty_sats, status, expires_at) VALUES ('${gigId}', '0xBuyer', 'computation', '{}', 10, 'ACTIVE', datetime('now', '+1 hour'))"`,
+    `npx wrangler d1 execute automata-db-prod --remote --command "INSERT INTO agent_gigs (gig_id, buyer_pubkey, task_type, payload_json, bounty_sats, status, expires_at) VALUES ('${gigId}', '0xBuyer', 'computation', '{}', 10, 'ACTIVE', datetime('now', '+1 hour'))"`,
     { stdio: 'inherit' }
   );
   
