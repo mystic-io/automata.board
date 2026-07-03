@@ -10,7 +10,7 @@ ENVIRONMENT = "development"
 [[d1_databases]]
 binding = "DB"
 database_name = "automata-db"
-database_id = "6cf9445d-668f-4b59-9d28-31de8d05f19b"
+database_id = "e2f3ae5a-e9e9-49c6-9e36-95f955503e56"
 
 # Secrets (set via `wrangler secret put`):
 #   X402_PAY_TO
@@ -22,11 +22,7 @@ class_name = "Automata"
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["GigTunnel"]
-
-[[migrations]]
-tag = "v2"
-renamed_classes = [{from = "GigTunnel", to = "Automata" }]
+new_sqlite_classes = ["Automata"]
 
 # Cron Triggers (runs every 15 minutes)
 # [triggers]
@@ -45,7 +41,7 @@ ENVIRONMENT = "production"
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "automata-db-prod"
-database_id = "b597a8d1-8f9f-4dcd-bdcc-9a8ef55d4412"
+database_id = "e9b5fe2a-2ff9-4838-b5d0-dd698c8a357e"
 
 [[env.production.durable_objects.bindings]]
 name = "TUNNEL"
