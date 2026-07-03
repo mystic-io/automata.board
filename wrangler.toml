@@ -22,7 +22,11 @@ class_name = "Automata"
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["Automata"]
+new_sqlite_classes = ["GigTunnel"]
+
+[[migrations]]
+tag = "v2"
+renamed_classes = [{from = "GigTunnel", to = "Automata" }]
 
 # Cron Triggers (runs every 15 minutes)
 # [triggers]
