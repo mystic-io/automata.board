@@ -46,3 +46,18 @@ database_id = "e9b5fe2a-2ff9-4838-b5d0-dd698c8a357e"
 [[env.production.durable_objects.bindings]]
 name = "TUNNEL"
 class_name = "Automata"
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
