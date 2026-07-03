@@ -260,22 +260,41 @@ app.get('/', async (c) => {
 });
 
 app.get('/test-rpc', async (c) => {
-  try {
-    const res = await fetch("https://mainnet.base.org", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "eth_blockNumber",
-        params: []
-      })
-    });
-    const text = await res.text();
-    return c.text(`Status: ${res.status}\nResponse: ${text}`);
-  } catch (err: any) {
-    return c.text(`Error: ${err.message}\nStack: ${err.stack}`);
-  }
+  const rpcs = [
+    "https://mainnet.base.org",
+    "https://base-rpc.publicnode.com",
+    "https://base.meowrpc.com",
+    "https://gateway.tenderly.co/public/base",
+    "https://base.drpc.org",
+    "https://base.llamarpc.com",
+    "https://base-mainnet.public.blastapi.io",
+    "https://rpc.ankr.com/base",
+    "https://1rpc.io/base"
+  ];
+
+  const results: Record<string, string> = {};
+
+  await Promise.all(rpcs.map(async (url) => {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "eth_blockNumber",
+          params: []
+        }),
+        signal: AbortSignal.timeout(3000)
+      });
+      const text = await res.text();
+      results[url] = `Status: ${res.status} | Response: ${text.slice(0, 100)}`;
+    } catch (err: any) {
+      results[url] = `Error: ${err.message}`;
+    }
+  }));
+
+  return c.json(results);
 });
 
 app.get('/health', healthCheck);
