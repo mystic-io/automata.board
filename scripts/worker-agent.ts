@@ -25,7 +25,7 @@ const account = mnemonicToAccount(MNEMONIC, { accountIndex: 1 });
 const walletClient = createWalletClient({
   account,
   chain: base,
-  transport: http("https://base-rpc.publicnode.com"),
+  transport: http("https://mainnet.base.org"),
 });
 
 async function main() {
@@ -137,13 +137,13 @@ async function main() {
 
     // Simple execution logic
     if (data.type === "instruction" && data.payload.action === "start_extraction") {
-      console.log("⚙️  Executing task: Extracting data (simulating long 5-minute task)...");
+      console.log("⚙️  Executing task: Extracting data (simulating quick 5-second task)...");
       
       let seconds = 0;
       const progressInterval = setInterval(() => {
-        seconds += 30;
+        seconds += 1;
         console.log(`⏳ Still executing... (${seconds} seconds elapsed)`);
-      }, 30000);
+      }, 1000);
 
       setTimeout(() => {
         clearInterval(progressInterval);
@@ -162,7 +162,7 @@ async function main() {
             }
           }
         }));
-      }, 300000); // Simulate 5 minutes of work
+      }, 5000); // Simulate 5 seconds of work
     }
   });
 

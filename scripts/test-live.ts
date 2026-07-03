@@ -54,7 +54,7 @@ async function runTests() {
   const { execSync } = require("child_process");
   
   execSync(
-    `npx wrangler d1 execute automata-db-prod --remote --command "INSERT INTO agent_gigs (gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, expires_at) VALUES ('${gigId}', '0xBuyer', 'Test Gig', 'Test Description', 'computation', '{}', 10, 'ACTIVE', datetime('now', '+1 hour'))"`,
+    `npx wrangler d1 execute automata-db-prod --remote --command "INSERT INTO agent_gigs (gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, expires_at) VALUES ('${gigId}', '0xBuyer', 'Test Gig', 'Test Description', 'computation', '{}', 10, 'ACTIVE', strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+1 hour'))"`,
     { stdio: 'inherit' }
   );
   

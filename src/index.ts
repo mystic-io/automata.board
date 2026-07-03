@@ -56,7 +56,7 @@ app.use('/v1/gigs/create', async (c, next) => {
   const combinedClient = createWalletClient({
     account,
     chain: base,
-    transport: http("https://base-rpc.publicnode.com"),
+    transport: http("https://mainnet.base.org"),
   }).extend(publicActions);
   const signer = toFacilitatorEvmSigner(combinedClient as any);
 
@@ -257,6 +257,25 @@ app.get('/', async (c) => {
     supported_tasks: ['web_scrape', 'data_extraction', 'computation', 'api_relay', 'custom'],
     disclaimer: 'Automata solely facilitates the introduction and connection between agents. Payment terms, task verification, and final delivery must be negotiated and settled directly between the buyer and worker agents over the real-time tunnel.'
   });
+});
+
+app.get('/test-rpc', async (c) => {
+  try {
+    const res = await fetch("https://mainnet.base.org", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "eth_blockNumber",
+        params: []
+      })
+    });
+    const text = await res.text();
+    return c.text(`Status: ${res.status}\nResponse: ${text}`);
+  } catch (err: any) {
+    return c.text(`Error: ${err.message}\nStack: ${err.stack}`);
+  }
 });
 
 app.get('/health', healthCheck);

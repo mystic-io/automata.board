@@ -22,7 +22,7 @@ const account = mnemonicToAccount(MNEMONIC);
 const walletClient = createWalletClient({
   account,
   chain: base,
-  transport: http("https://base-rpc.publicnode.com"),
+  transport: http("https://mainnet.base.org"),
 });
 
 // 2. Initialize x402 Client with EVM Scheme
