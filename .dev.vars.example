@@ -1,0 +1,13 @@
+# Receiver address for x402 payments (Base USDC receiver)
+X402_PAY_TO="0x0000000000000000000000000000000000000000"
+
+# 12-word mnemonic seed phrase for local facilitator & test agents (must be funded on Base Mainnet)
+# - Account Index 0 (First account): Acts as Buyer & Facilitator (Needs Base ETH for gas + Base USDC for paywall)
+# - Account Index 1 (Second account): Acts as Worker
+WALLET_MNEMONIC="your twelve word seed phrase here..."
+
+# API Key for MCP server authorization
+MCP_API_KEY="your-secret-mcp-key"
+
+# (Optional) Target API URL for running agent simulation scripts (defaults to http://127.0.0.1:8787)
+API_URL="http://127.0.0.1:8787"
