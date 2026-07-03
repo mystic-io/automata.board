@@ -19,9 +19,6 @@ export interface Env {
   /** x402 payment destination address */
   X402_PAY_TO: string;
 
-  /** MCP API Key for authenticating agents */
-  MCP_API_KEY?: string;
-
   /** Mnemonic for the local embedded facilitator */
   WALLET_MNEMONIC: string;
 

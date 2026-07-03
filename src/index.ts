@@ -58,7 +58,7 @@ app.use('/v1/gigs/create', async (c, next) => {
     chain: base,
     transport: http("https://base-rpc.publicnode.com"),
   }).extend(publicActions);
-  const signer = toFacilitatorEvmSigner(combinedClient);
+  const signer = toFacilitatorEvmSigner(combinedClient as any);
 
   // 2. Initialize the embedded Facilitator
   const localFacilitator = new x402Facilitator();
@@ -68,14 +68,14 @@ app.use('/v1/gigs/create', async (c, next) => {
   });
 
   localFacilitator.onVerifyFailure(async (ctx) => {
-    console.error('Facilitator Verify Failed:', ctx.reason, ctx.error);
+    console.error('Facilitator Verify Failed:', ctx.error);
   });
   localFacilitator.onSettleFailure(async (ctx) => {
-    console.error('Facilitator Settle Failed:', ctx.reason, ctx.error);
+    console.error('Facilitator Settle Failed:', ctx.error);
   });
 
   // 3. Mount it to the Resource Server
-  const resourceServer = new x402ResourceServer(localFacilitator)
+  const resourceServer = new x402ResourceServer(localFacilitator as any)
     .register('eip155:8453', new ExactEvmScheme());
 
   const middleware = paymentMiddleware(
@@ -154,13 +154,6 @@ app.get('/v1/gigs/discover', async (c) => {
 // ---------------------------------------------------------------------------
 // MCP Server
 // ---------------------------------------------------------------------------
-app.use('/mcp/*', async (c, next) => {
-  const auth = c.req.header('Authorization');
-  if (auth !== `Bearer ${c.env.MCP_API_KEY}`) {
-    return errorResponse('Unauthorized MCP access', 401);
-  }
-  return next();
-});
 
 app.all('/mcp/*', async (c) => {
   const server = new McpServer({

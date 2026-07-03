@@ -32,9 +32,13 @@ crons = ["*/15 * * * *"]
 # Production Environment
 # ---------------------------------------------------------------------------
 [env.production]
-name = "vivia-api"
+# Remove `name = "vivia-api"` to allow Wrangler to auto-name it `vivia-api-production`
 [env.production.vars]
 ENVIRONMENT = "production"
+
+# Production Cron Triggers
+[env.production.triggers]
+crons = ["*/15 * * * *"]
 
 [[env.production.d1_databases]]
 binding = "DB"
