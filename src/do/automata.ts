@@ -4,7 +4,7 @@
  * Ephemeral WebSocket relay connecting Buyer and Worker agents.
  */
 
-export class GigTunnel {
+export class Automata {
   private state: DurableObjectState;
   
   constructor(state: DurableObjectState, _env: unknown) {

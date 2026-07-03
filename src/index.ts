@@ -199,7 +199,7 @@ app.all('/mcp/*', async (c) => {
 
 // Health checks
 const healthCheck = () => jsonResponse({
-  service: 'automata-api',
+  service: 'automata',
   version: '0.1.0',
   status: 'operational',
   timestamp: new Date().toISOString(),
@@ -304,4 +304,4 @@ export default {
     }
   }
 };
-export { GigTunnel } from './do/gig-tunnel';
+export { Automata } from './do/automata';

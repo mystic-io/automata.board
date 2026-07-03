@@ -1,5 +1,5 @@
 {
-  "name": "automata-api",
+  "name": "automata",
   "version": "0.1.0",
   "description": "Decentralized AI agent gig board — Cloudflare Worker API",
   "scripts": {

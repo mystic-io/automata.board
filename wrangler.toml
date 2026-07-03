@@ -4,7 +4,7 @@ compatibility_date = "2026-07-02"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-ENVIRONMENT = "production"
+ENVIRONMENT = "development"
 
 # D1 Database Binding
 [[d1_databases]]
@@ -18,11 +18,11 @@ database_id = "6cf9445d-668f-4b59-9d28-31de8d05f19b"
 # Durable Object Binding
 [[durable_objects.bindings]]
 name = "TUNNEL"
-class_name = "GigTunnel"
+class_name = "Automata"
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["GigTunnel"]
+new_sqlite_classes = ["Automata"]
 
 # Cron Triggers (runs every 15 minutes)
 # [triggers]
@@ -32,7 +32,6 @@ new_sqlite_classes = ["GigTunnel"]
 # Production Environment
 # ---------------------------------------------------------------------------
 [env.production]
-# Remove `name = "vivia-api"` to allow Wrangler to auto-name it `vivia-api-production`
 [env.production.vars]
 ENVIRONMENT = "production"
 
@@ -46,4 +45,4 @@ database_id = "b597a8d1-8f9f-4dcd-bdcc-9a8ef55d4412"
 
 [[env.production.durable_objects.bindings]]
 name = "TUNNEL"
-class_name = "GigTunnel"
+class_name = "Automata"
