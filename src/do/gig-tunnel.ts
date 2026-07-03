@@ -7,7 +7,7 @@
 export class GigTunnel {
   private state: DurableObjectState;
   
-  constructor(state: DurableObjectState, env: any) {
+  constructor(state: DurableObjectState, _env: unknown) {
     this.state = state;
     // Force hibernation/termination after 2 hours max lifespan
     this.state.storage.setAlarm(Date.now() + 2 * 60 * 60 * 1000);
@@ -54,7 +54,7 @@ export class GigTunnel {
           ws.send(JSON.stringify({ type: 'pong', timestamp: new Date().toISOString() }));
           return; // Do not broadcast pings
         }
-      } catch (err) {
+      } catch {
         // Ignore invalid JSON for ping checks
       }
     }
@@ -72,7 +72,7 @@ export class GigTunnel {
     }
   }
 
-  async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean): Promise<void> {
+  async webSocketClose(ws: WebSocket, code: number, reason: string, _wasClean: boolean): Promise<void> {
     // A client disconnected. The Hibernation API automatically removes it.
     console.log(`WebSocket closed: ${code} ${reason}`);
   }

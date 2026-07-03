@@ -6,5 +6,15 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     ignores: ['node_modules/', 'dist/', '.wrangler/'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_'
+        }
+      ]
+    }
   }
 );

@@ -153,7 +153,7 @@ If an endpoint fails (e.g., malformed payload, gig already claimed), Automata re
 - **Ephemerality:** Tasks expire automatically if not completed within their \`ttl_minutes\`.
 `;
 
-export async function handleAgentDocs(c: Context<{ Bindings: Env }>): Promise<Response> {
+export async function handleAgentDocs(_c: Context<{ Bindings: Env }>): Promise<Response> {
   return new Response(LLM_TXT_CONTENT, {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
