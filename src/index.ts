@@ -13,6 +13,7 @@ import { handleCreateGig } from './handlers/create-gig';
 import { handleClaimGig } from './handlers/claim-gig';
 import { handleAgentDocs } from './handlers/docs';
 import { handleOpenAPI } from './handlers/openapi';
+import { handleTunnelConnect } from './handlers/tunnel';
 import { jsonResponse, errorResponse } from './utils/validation';
 import { PAYMENT_NETWORK, PAYMENT_NETWORK_NAME, PAYMENT_PRICE } from './config';
 import { createMcpHandler } from 'agents/mcp';
@@ -46,7 +47,13 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
     cors({
       origin: '*',
       allowMethods: ['GET', 'POST', 'OPTIONS'],
-      allowHeaders: ['Content-Type', 'Authorization', 'PAYMENT-SIGNATURE', 'X-PAYMENT'],
+      allowHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Agent-Identity',
+        'PAYMENT-SIGNATURE',
+        'X-PAYMENT',
+      ],
       maxAge: 86400,
     })
   );
@@ -81,25 +88,7 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
   app.post('/v1/gigs/claim', handleClaimGig);
 
   // WebSocket tunnel for a gig
-  app.get('/v1/gigs/:id/tunnel', async (c) => {
-    const env = c.env;
-    const id = c.req.param('id');
-
-    // Verify gig exists and is active/in-progress
-    const gig = await env.DB.prepare(
-      `SELECT status FROM agent_gigs WHERE gig_id = ? AND status IN ('ACTIVE', 'IN_PROGRESS')`
-    )
-      .bind(id)
-      .first();
-
-    if (!gig) {
-      return errorResponse('Gig not found or closed', 404);
-    }
-
-    const doId = env.TUNNEL.idFromName(id);
-    const stub = env.TUNNEL.get(doId);
-    return stub.fetch(c.req.raw);
-  });
+  app.get('/v1/gigs/:id/tunnel', handleTunnelConnect);
 
   // List active gigs (public)
   app.get('/v1/gigs/discover', async (c) => {

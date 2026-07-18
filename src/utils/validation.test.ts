@@ -48,6 +48,13 @@ describe('validateCreateGigPayload', () => {
       message: 'Must be a JSON object',
     });
   });
+
+  it('rejects an identity with ambiguous surrounding whitespace', () => {
+    const result = validateCreateGigPayload({ ...validCreatePayload, sender: ' 0xbuyer' });
+
+    expect(result.data).toBeNull();
+    expect(result.errors.map(({ field }) => field)).toContain('sender');
+  });
 });
 
 describe('validateClaimGigPayload', () => {

@@ -19,11 +19,12 @@ const ALLOWED_TASK_TYPES = new Set([
   'custom',
 ]);
 
-const MAX_PAYLOAD_SIZE = 10_000;   // 10 KB max for payload_json
-const MAX_TTL_MINUTES = 120;       // 2 hours (matches PRD ephemerality)
+const MAX_PAYLOAD_SIZE = 10_000; // 10 KB max for payload_json
+const MAX_TTL_MINUTES = 120; // 2 hours (matches PRD ephemerality)
 const MIN_TTL_MINUTES = 1;
 const MAX_BOUNTY_SATS = 1_000_000; // 1M sats cap
 const MIN_BOUNTY_SATS = 1;
+export const MAX_AGENT_IDENTITY_LENGTH = 512;
 
 // ---------------------------------------------------------------------------
 // Payload Validation
@@ -48,7 +49,10 @@ export function validateCreateGigPayload(
   const errors: ValidationError[] = [];
 
   if (!isJsonObject(body)) {
-    return { data: null, errors: [{ field: 'body', message: 'Request body must be a JSON object' }] };
+    return {
+      data: null,
+      errors: [{ field: 'body', message: 'Request body must be a JSON object' }],
+    };
   }
 
   const obj = body;
@@ -57,8 +61,16 @@ export function validateCreateGigPayload(
     errors.push({ field: 'message_id', message: 'Must be a non-empty string' });
   }
 
-  if (typeof obj.sender !== 'string' || obj.sender.trim().length === 0) {
-    errors.push({ field: 'sender', message: 'Must be a non-empty string (hex-encoded public key)' });
+  if (
+    typeof obj.sender !== 'string' ||
+    obj.sender.trim().length === 0 ||
+    obj.sender !== obj.sender.trim() ||
+    obj.sender.length > MAX_AGENT_IDENTITY_LENGTH
+  ) {
+    errors.push({
+      field: 'sender',
+      message: `Must be a trimmed string between 1 and ${MAX_AGENT_IDENTITY_LENGTH} characters`,
+    });
   }
 
   if (obj.type !== 'TaskDelegation') {
@@ -70,14 +82,22 @@ export function validateCreateGigPayload(
   } else {
     const payload = obj.payload;
 
-    if (typeof payload.title !== 'string' || payload.title.trim().length === 0 || payload.title.length > 80) {
+    if (
+      typeof payload.title !== 'string' ||
+      payload.title.trim().length === 0 ||
+      payload.title.length > 80
+    ) {
       errors.push({
         field: 'payload.title',
         message: 'Must be a string between 1 and 80 characters',
       });
     }
 
-    if (typeof payload.description !== 'string' || payload.description.trim().length === 0 || payload.description.length > 500) {
+    if (
+      typeof payload.description !== 'string' ||
+      payload.description.trim().length === 0 ||
+      payload.description.length > 500
+    ) {
       errors.push({
         field: 'payload.description',
         message: 'Must be a string between 1 and 500 characters',
@@ -96,7 +116,10 @@ export function validateCreateGigPayload(
     } else {
       const taskParamsStr = JSON.stringify(payload.task_params);
       if (taskParamsStr.length > MAX_PAYLOAD_SIZE) {
-        errors.push({ field: 'payload.task_params', message: `Serialized params must not exceed ${MAX_PAYLOAD_SIZE} characters` });
+        errors.push({
+          field: 'payload.task_params',
+          message: `Serialized params must not exceed ${MAX_PAYLOAD_SIZE} characters`,
+        });
       }
     }
 
@@ -138,7 +161,10 @@ export function validateCreateGigPayload(
         title: (obj.payload as Record<string, unknown>).title as string,
         description: (obj.payload as Record<string, unknown>).description as string,
         task_type: (obj.payload as Record<string, unknown>).task_type as string,
-        task_params: (obj.payload as Record<string, unknown>).task_params as Record<string, unknown>,
+        task_params: (obj.payload as Record<string, unknown>).task_params as Record<
+          string,
+          unknown
+        >,
         bounty_sats: (obj.payload as Record<string, unknown>).bounty_sats as number,
         ttl_minutes: (obj.payload as Record<string, unknown>).ttl_minutes as number,
       },
@@ -156,7 +182,10 @@ export function validateClaimGigPayload(
   const errors: ValidationError[] = [];
 
   if (!isJsonObject(body)) {
-    return { data: null, errors: [{ field: 'body', message: 'Request body must be a JSON object' }] };
+    return {
+      data: null,
+      errors: [{ field: 'body', message: 'Request body must be a JSON object' }],
+    };
   }
 
   const obj = body;
@@ -165,8 +194,16 @@ export function validateClaimGigPayload(
     errors.push({ field: 'message_id', message: 'Must be a non-empty string' });
   }
 
-  if (typeof obj.sender !== 'string' || obj.sender.trim().length === 0) {
-    errors.push({ field: 'sender', message: 'Must be a non-empty string (hex-encoded public key)' });
+  if (
+    typeof obj.sender !== 'string' ||
+    obj.sender.trim().length === 0 ||
+    obj.sender !== obj.sender.trim() ||
+    obj.sender.length > MAX_AGENT_IDENTITY_LENGTH
+  ) {
+    errors.push({
+      field: 'sender',
+      message: `Must be a trimmed string between 1 and ${MAX_AGENT_IDENTITY_LENGTH} characters`,
+    });
   }
 
   if (obj.type !== 'TaskClaim') {
@@ -206,7 +243,8 @@ export function validateClaimGigPayload(
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers':
+    'Content-Type, Authorization, X-Agent-Identity, PAYMENT-SIGNATURE, X-PAYMENT',
 };
 
 /**
@@ -230,11 +268,7 @@ export function jsonResponse(
 /**
  * Standard error response envelope.
  */
-export function errorResponse(
-  message: string,
-  status: number = 400,
-  details?: unknown
-): Response {
+export function errorResponse(message: string, status: number = 400, details?: unknown): Response {
   return jsonResponse(
     {
       error: true,
