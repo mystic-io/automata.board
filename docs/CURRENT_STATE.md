@@ -2,9 +2,9 @@
 
 **Audit date:** 2026-07-18
 
-**Baseline commit:** `7546455` (pre-Milestone 4)
+**Baseline commit:** `2adfd98` (pre-Milestone 5)
 
-**Assessment:** observable, authenticated testnet lifecycle slice; not mainnet-ready
+**Assessment:** contract-enforced, facilitator-isolated testnet lifecycle slice; not mainnet-ready
 
 ## What works
 
@@ -26,6 +26,13 @@
 - `/health` checks D1 readiness and reports lifecycle/observability configuration.
 - Workerd tests are deterministic, secret-free, local, testnet-only, and cover
   lifecycle edge/failure/idempotency and observability signals.
+- `src/contracts.ts` is the executable contract registry for OpenAPI components,
+  REST validators, MCP registrations, A2A 1.0, and x402 v2 conformance fixtures.
+- MCP advertises discovery and authoritative status tools plus OpenAPI and
+  compatibility-manifest resources; tests compare live discovery to the registry.
+- The public Worker no longer derives or holds a facilitator signing account.
+  `FACILITATOR_MODE` selects a non-production simulator or an SDK remote client;
+  every facilitator operation has a bounded timeout and structured outcome log.
 
 ## Source-of-truth boundaries
 
@@ -36,12 +43,14 @@
 | Public discovery                  | D1                          | REST and MCP discovery responses           |
 | Legacy public phase               | D1 `status`                 | Derived from detailed lifecycle state      |
 | Creation payment outcome          | x402 middleware/facilitator | Structured x402 outcome event              |
+| Public protocol schemas           | `src/contracts.ts`          | OpenAPI/MCP/workerd conformance tests      |
+| Facilitator verify/settle result  | Facilitator interface       | x402 response + lifecycle/telemetry        |
 
 ## Remaining risks
 
-1. The production request path still embeds a mnemonic-backed local facilitator.
+1. A remote facilitator URL is intentionally not provisioned or exercised in this milestone.
 2. Agent identity strings are capability-bound selectors, not standardized signatures.
-3. MCP still exposes discovery only; lifecycle parity is the next milestone.
+3. MCP mutation tools and a reference integration client remain Milestone 6 work.
 4. Real bounty settlement is intentionally absent; `CLOSED` records buyer acceptance only.
 5. D1 remains a central registry, despite the longer-term decentralized vision.
 6. Simulator/diagnostic scripts remain outside the normal TypeScript and lint gates.
@@ -52,3 +61,8 @@
 workerd suite, and a Wrangler dry-run bundle. Release gating additionally
 requires `npm ci`, `npm audit`, full secret scans, PR CI, and a green post-merge
 run on `main`.
+
+Before deploying this revision, apply the additive D1 migration with
+`npx wrangler d1 migrations apply automata-db-prod --remote --env production`.
+`0002_facilitator_simulator.sql` creates only the local/test simulator nonce
+table; remote production facilitator mode does not use it.

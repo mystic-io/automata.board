@@ -19,8 +19,14 @@ export interface Env {
   /** x402 payment destination address */
   X402_PAY_TO: string;
 
-  /** Mnemonic for the local embedded facilitator */
-  WALLET_MNEMONIC: string;
+  /** Facilitator selection. Simulator is forbidden in production. */
+  FACILITATOR_MODE: 'simulator' | 'remote';
+
+  /** Remote x402 facilitator base URL (required in remote mode). */
+  X402_FACILITATOR_URL?: string;
+
+  /** Per-operation verify/settle timeout in milliseconds. */
+  FACILITATOR_TIMEOUT_MS?: string;
 
   /** Environment string (e.g. 'development' or 'production') */
   ENVIRONMENT: string;

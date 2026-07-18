@@ -23,3 +23,10 @@ CREATE TABLE IF NOT EXISTS agent_gigs (
 CREATE INDEX IF NOT EXISTS idx_gigs_active
     ON agent_gigs (status, expires_at)
     WHERE status = 'ACTIVE';
+
+-- Secret-free local facilitator replay protection. Production remote mode does
+-- not read this table.
+CREATE TABLE IF NOT EXISTS facilitator_simulator_nonces (
+    nonce TEXT PRIMARY KEY,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

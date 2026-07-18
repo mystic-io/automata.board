@@ -1,48 +1,21 @@
-import type { AppContext, LifecycleActionPayload, TunnelRole } from '../types';
+import type { AppContext } from '../types';
 import {
   createTunnelGrant,
   hashTunnelGrant,
   MAX_TUNNEL_GRANT_TOKEN_LENGTH,
 } from '../services/tunnel-grants';
-import { errorResponse, jsonResponse, MAX_AGENT_IDENTITY_LENGTH } from '../utils/validation';
+import {
+  errorResponse,
+  jsonResponse,
+  validateLifecycleActionPayload,
+  validateReconnectPayload,
+} from '../utils/validation';
 
 function bearerToken(c: AppContext): string | null {
   const header = c.req.header('Authorization');
   if (!header?.startsWith('Bearer ')) return null;
   const token = header.slice(7).trim();
   return token && token.length <= MAX_TUNNEL_GRANT_TOKEN_LENGTH ? token : null;
-}
-
-function parseAction(value: unknown, gigId: string): LifecycleActionPayload | null {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
-  const body = value as Record<string, unknown>;
-  const payload = body.payload;
-  const allowed = new Set([
-    'TaskDelivery',
-    'TaskAcceptance',
-    'TaskCancellation',
-    'TaskAbandonment',
-  ]);
-  if (
-    typeof body.message_id !== 'string' ||
-    !body.message_id.trim() ||
-    typeof body.sender !== 'string' ||
-    !body.sender.trim() ||
-    body.sender.length > MAX_AGENT_IDENTITY_LENGTH ||
-    typeof body.type !== 'string' ||
-    !allowed.has(body.type) ||
-    typeof payload !== 'object' ||
-    payload === null ||
-    Array.isArray(payload)
-  )
-    return null;
-  const actionPayload = payload as Record<string, unknown>;
-  if (
-    actionPayload.gig_id !== gigId ||
-    (actionPayload.reason !== undefined && typeof actionPayload.reason !== 'string')
-  )
-    return null;
-  return body as unknown as LifecycleActionPayload;
 }
 
 function errorForLifecycle(error: unknown): Response {
@@ -76,8 +49,9 @@ export async function handleLifecycleAction(c: AppContext): Promise<Response> {
   } catch {
     return errorResponse('Invalid JSON body', 400);
   }
-  const body = parseAction(value, gigId);
-  if (!body) return errorResponse('Validation failed', 400);
+  const validation = validateLifecycleActionPayload(value, gigId);
+  if (!validation.data) return errorResponse('Validation failed', 400, validation.errors);
+  const body = validation.data;
   const command = {
     message_id: body.message_id,
     actor_identity: body.sender,
@@ -112,21 +86,12 @@ export async function handleReconnect(c: AppContext): Promise<Response> {
   } catch {
     return errorResponse('Invalid JSON body', 400);
   }
-  if (!gigId || !token || typeof value !== 'object' || value === null || Array.isArray(value))
-    return errorResponse('Validation failed', 400);
-  const body = value as Record<string, unknown>;
+  if (!gigId || !token) return errorResponse('Validation failed', 400);
+  const validation = validateReconnectPayload(value);
+  if (!validation.data) return errorResponse('Validation failed', 400, validation.errors);
+  const body = validation.data;
   const role = body.role;
-  if (
-    typeof body.message_id !== 'string' ||
-    typeof body.sender !== 'string' ||
-    (role !== 'buyer' && role !== 'worker')
-  )
-    return errorResponse('Validation failed', 400);
-  const replacement = createTunnelGrant(
-    role as TunnelRole,
-    body.sender,
-    new Date(Date.now() + 1).toISOString()
-  );
+  const replacement = createTunnelGrant(role, body.sender, new Date(Date.now() + 1).toISOString());
   const stub = c.env.TUNNEL.getByName(gigId);
   try {
     const lifecycle = await stub.getLifecycle();
@@ -138,7 +103,7 @@ export async function handleReconnect(c: AppContext): Promise<Response> {
     const result = await stub.reconnectTunnelSession({
       message_id: body.message_id,
       actor_identity: body.sender,
-      role: role as TunnelRole,
+      role,
       current_grant_hash: await hashTunnelGrant(token),
       replacement_grant_hash: await hashTunnelGrant(replacement.token),
       correlation_id: c.get('correlationId'),

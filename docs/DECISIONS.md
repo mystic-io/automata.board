@@ -34,6 +34,9 @@ mainnet activation behind the founder-approval guardrail.
 
 **Status:** Accepted — 2026-07-18
 
+**Supersession note:** ADR-008 replaces the production embedded-facilitator
+choice below; the workerd harness and simulator decisions remain accepted.
+
 **Decision:** Use Vitest with `@cloudflare/vitest-pool-workers` for the Cloudflare
 runtime harness, with a separate test-only Worker entrypoint and deterministic
 x402 facilitator.
@@ -162,3 +165,66 @@ observability configuration and needs no new binding. Analytics Engine is not
 added: the current event volume and query needs do not justify another
 account-level resource. If retained telemetry volume later requires aggregate
 analytics, that is a separately reviewed infrastructure decision.
+
+## ADR-007: Executable schemas own public protocol compatibility
+
+**Status:** Accepted — 2026-07-18
+
+**Decision:** Version the Automata contract as `1.0.0`, pin A2A `1.0`, MCP server
+`1.0.0`, and x402 `2`, and keep their executable JSON Schemas and MCP registry in
+`src/contracts.ts`. Runtime request validation, OpenAPI components, MCP
+registration, and workerd conformance tests consume those objects.
+
+The original Automata v1 command envelope remains accepted. A2A 1.0 Messages are
+an additive representation: one JSON DataPart carries the same `sender`, `type`,
+and `payload`, and is normalized only after the A2A envelope validates. Root and
+`/.well-known/agent-card.json` serve the same conformant Agent Card while legacy
+root discovery fields remain additive for existing clients.
+
+Within contract major `1`, changes may add optional fields, tools, resources, or
+response variants without changing existing semantics. Removing or renaming a
+field, making an optional field required, tightening accepted valid input, or
+changing lifecycle/payment meaning requires a new major version and documented
+migration path.
+
+### Accepted trade-offs
+
+- The small in-repository schema evaluator implements only keywords used by the
+  contracts; conformance tests exercise every supported keyword path.
+- MCP exposes discovery and authoritative status in this milestone. Mutation
+  tools and a reference client remain Milestone 6 work.
+- The A2A integration is an Automata HTTP+JSON profile, not a claim that every
+  optional A2A service operation or transport is implemented.
+
+## ADR-008: Resource servers depend on a timeout-bounded facilitator interface
+
+**Status:** Accepted — 2026-07-18
+
+**Decision:** The public Worker depends only on the x402 facilitator operations
+`verify`, `settle`, and `getSupported`. `FACILITATOR_MODE=simulator` selects the
+secret-free deterministic implementation outside production; `remote` selects
+the official SDK HTTP client and requires `X402_FACILITATOR_URL`. Production
+rejects simulator mode. Every operation has a 10–30000 ms bounded timeout.
+
+The facilitator is trusted to validate authorization correctness, prevent
+replay according to its scheme, submit only the declared Base Sepolia transfer,
+and report final settlement honestly. The resource server still owns route
+policy, challenge construction, handler gating, lifecycle failure, projection,
+grant revocation, and telemetry. It never sends task payloads, tunnel grants, or
+participant authorization headers to the facilitator.
+
+The official x402 middleware maps invalid, unavailable, timed-out, failed, and
+pending facilitator outcomes to `402`. Verification failures run no handler.
+Any non-final settlement after creation transitions the Durable Object to
+`FAILED`, projects D1 legacy `EXPIRED`, and revokes grants. Local configuration
+errors return structured `500`. Real settlement, a hosted facilitator, and
+mainnet activation remain out of scope.
+
+### Accepted trade-offs
+
+- Pending settlement is not exposed as a public intermediate lifecycle state;
+  it fails closed because this resource server has no settlement-reconciliation
+  protocol yet.
+- The SDK HTTP client owns remote wire details. Automata owns the interface,
+  timeout, configuration gate, lifecycle consequences, and observability.
+- No account-level service, paid resource, RPC, or real funds are used here.

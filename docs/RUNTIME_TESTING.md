@@ -16,12 +16,11 @@ tests and before the Wrangler dry-run bundle. The same checks run in CI.
 
 ## Safety and determinism
 
-- `test/runtime/worker.ts` is a test-only Worker entrypoint. It composes the
-  production app with a deterministic x402 facilitator instead of the
-  mnemonic-backed Base Sepolia facilitator.
-- Simulated proofs exercise the real x402 Hono middleware and cover valid,
-  invalid, insufficient, and replayed payments without signatures, funds,
-  secrets, or RPC calls.
+- `test/runtime/worker.ts` composes the production app with the same explicit
+  facilitator interface and the deterministic, secret-free simulator.
+- EIP-3009-shaped simulated authorizations exercise the real x402 Hono
+  middleware and cover valid, invalid, insufficient, and replayed payments
+  without cryptographic verification, funds, secrets, or RPC calls.
 - The D1 schema is loaded from `schema.sql` before each test, and fixture rows
   are reset between tests.
 - MCP tests use the official Streamable HTTP client with an in-runtime fetch
@@ -30,6 +29,39 @@ tests and before the Wrangler dry-run bundle. The same checks run in CI.
   application paths. Only SHA-256 grant digests enter Durable Object storage;
   tests use no signing secret or external identity provider.
 - Base Sepolia (`eip155:84532`) remains the only configured payment network.
+
+## Contract conformance
+
+`test/runtime/contracts.runtime.test.ts` treats the running Worker as the system
+under test. It validates real discovery/error payloads against schemas served by
+`/v1/openapi.json`, compares MCP tool/resource discovery to `MCP_CONTRACT`, reads
+the contract manifest over MCP, verifies the A2A 1.0 Agent Card and Message
+profile, and decodes and validates `PAYMENT-REQUIRED`, `PAYMENT-SIGNATURE`, and
+`PAYMENT-RESPONSE` as x402 v2 payloads.
+
+The executable schemas live in `src/contracts.ts`. A contract change that is not
+reflected by runtime validation, OpenAPI, or MCP therefore breaks a workerd gate.
+The `1.x` compatibility promise is additive; removals, stricter required fields,
+or semantic changes require a new major contract version and migration path.
+
+## Facilitator behavior matrix
+
+`test/runtime/payment.runtime.test.ts` covers valid and invalid verification,
+replay, unavailable and timed-out verification, failed/unavailable/timed-out
+settlement, and settlement that remains pending past the deadline. The official
+x402 middleware maps all unverified or unsettled outcomes to `402`:
+
+- verify invalid/unavailable/timeout: handler does not run and no gig exists;
+- settle false/unavailable/timeout/pending: the handler-created gig transitions
+  to `FAILED`, D1 projects legacy `EXPIRED`, grants are revoked, and the caller
+  receives `402`;
+- local configuration errors: middleware cannot be constructed and returns
+  structured `500` without invoking the handler.
+
+No test contacts a hosted facilitator, RPC endpoint, or funded wallet.
+Replay state comes from `facilitator_simulator_nonces`, created by `schema.sql`
+for fresh databases and additive migration `0002_facilitator_simulator.sql` for
+existing databases.
 
 ## Authenticated tunnel lifecycle
 

@@ -38,13 +38,13 @@ A zero-trust registry running entirely at the edge. A Buyer Agent posts a task b
 
 Automata is built to be serverless and run 100% on the Cloudflare Edge network to minimize operational overhead and scale automatically.
 
-| Component                 | Stack                      | Purpose                                                                                                                                |
-| :------------------------ | :------------------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
-| **API Gateway**           | Cloudflare Workers & Hono  | Serverless execution layer for REST endpoints, handling CORS, and executing guardrails.                                                |
-| **State Storage**         | Cloudflare D1              | Versioned discovery/reporting projection with legacy status compatibility.                                                             |
-| **Lifecycle & Tunneling** | Cloudflare Durable Objects | Authoritative per-gig state machine and WebSocket relay with scoped, single-use capabilities.                                          |
-| **Payment Verification**  | `@x402/evm` & `@x402/hono` | Uses Hono middleware and an embedded Facilitator to handle x402 EVM challenges, verify EIP-3009 signatures, and relay on Base Sepolia. |
-| **Agent Discovery**       | MCP Server                 | A Model Context Protocol endpoint (`/mcp/*`) utilizing the Cloudflare Agents SDK adapter to expose registry tools.                     |
+| Component                 | Stack                      | Purpose                                                                                                                               |
+| :------------------------ | :------------------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
+| **API Gateway**           | Cloudflare Workers & Hono  | Serverless execution layer for REST endpoints, handling CORS, and executing guardrails.                                               |
+| **State Storage**         | Cloudflare D1              | Versioned discovery/reporting projection with legacy status compatibility.                                                            |
+| **Lifecycle & Tunneling** | Cloudflare Durable Objects | Authoritative per-gig state machine and WebSocket relay with scoped, single-use capabilities.                                         |
+| **Payment Verification**  | x402 facilitator boundary  | Hono owns the v2 exchange; a timeout-bounded `verify`/`settle` interface selects the local simulator or a remote testnet facilitator. |
+| **Agent Discovery**       | MCP Server                 | A Model Context Protocol endpoint (`/mcp/*`) utilizing the Cloudflare Agents SDK adapter to expose registry tools.                    |
 
 ---
 
@@ -54,10 +54,8 @@ Automata is built to be serverless and run 100% on the Cloudflare Edge network t
 
 - [Node.js](https://nodejs.org/) (v22+)
 - **Cloudflare Account:** Required if you plan to deploy. The project uses `npx wrangler` locally, so global installation of Wrangler is optional.
-- **Funded test wallet (Base Sepolia only):**
-  - The local simulation scripts share the `WALLET_MNEMONIC` defined in `.dev.vars`.
-  - The first derived account (`index: 0`) acts as both the **Buyer Agent** and the **On-Chain Facilitator**. It requires testnet ETH and testnet USDC.
-  - The second derived account (`index: 1`) acts as the **Worker Agent**.
+- A funded Base Sepolia wallet is needed only for optional live agent scripts.
+  The local Worker and all verification tests use the secret-free simulator.
 
 ### Installation
 
@@ -85,6 +83,7 @@ Automata is built to be serverless and run 100% on the Cloudflare Edge network t
 
    ```env
    X402_PAY_TO="0xYourReceiverAddress"
+   # Used only by optional buyer/worker scripts, never by the Worker facilitator:
    WALLET_MNEMONIC="your twelve word seed phrase here..."
    ```
 
@@ -112,7 +111,46 @@ or network access.
 The suite covers claim timeout, cancellation, abandonment, reconnect rotation,
 delivery/acceptance ordering, duplicate and out-of-order operations, deadline
 expiry with live sockets, D1 projection consistency, x402 failure after handler
-execution, correlation IDs, and structured transition/rejection events.
+execution, correlation IDs, contract conformance, facilitator failure/timeout
+semantics, and structured transition/rejection events.
+
+## Protocol compatibility
+
+Automata publishes OpenAPI 3.1 at `/v1/openapi.json`, an A2A 1.0 Agent Card at
+`/.well-known/agent-card.json`, and MCP tools/resources at `/mcp`. Contract version
+`1.x` is additive: existing fields and semantics are retained; a removal or
+semantic break requires a new major and documented migration path. The MCP
+resource `automata://contracts/manifest` exposes the pinned OpenAPI, MCP, A2A,
+and x402 versions.
+
+REST create, claim, and lifecycle routes accept both the original Automata v1
+envelope and an A2A 1.0 `Message` whose single JSON DataPart contains `sender`,
+`type`, and `payload`. x402 v2 uses `PAYMENT-REQUIRED`, `PAYMENT-SIGNATURE`, and
+`PAYMENT-RESPONSE`; the deprecated `X-PAYMENT` request alias remains accepted
+through the contract v1 compatibility window.
+
+## Facilitator configuration
+
+Development defaults to `FACILITATOR_MODE=simulator`. Production is pinned to
+`remote`, rejects the simulator, and requires `X402_FACILITATOR_URL` plus
+`X402_PAY_TO` through Worker secrets/configuration. `FACILITATOR_TIMEOUT_MS`
+defaults to 3000 and is bounded to 10–30000 ms.
+
+The remote facilitator is trusted to validate authorizations and submit only the
+declared Base Sepolia settlement. Invalid, unavailable, timed-out, failed, or
+pending results fail closed as x402 `402`. If settlement is not final after the
+create handler ran, the Durable Object transitions the gig to `FAILED`, projects
+legacy `EXPIRED`, and revokes grants. This repository does not provision or call
+a hosted facilitator and does not enable mainnet or real-value settlement.
+
+Before deploying this revision, apply the additive migration:
+
+```bash
+npx wrangler d1 migrations apply automata-db-prod --remote --env production
+```
+
+It creates only `facilitator_simulator_nonces`; remote production mode does not
+read the table.
 
 ---
 
@@ -166,7 +204,7 @@ sequenceDiagram
     Gateway-->>Buyer: 402 Payment Required (EVM challenge)
     Buyer->>Buyer: Signs EIP-3009 TransferWithAuthorization
     Buyer->>Gateway: POST /v1/gigs/create (with PAYMENT-SIGNATURE)
-    Gateway->>Gateway: Embedded Facilitator verifies & relays to Base Sepolia
+    Gateway->>Gateway: Facilitator boundary verifies & settles on Base Sepolia
     Gateway->>D1: Write Gig (Status: ACTIVE)
     Gateway->>DO: POSTED → DISCOVERABLE; prepare buyer grant + deadline
     Gateway-->>Buyer: 201 Created (Gig ID + buyer grant)
@@ -203,7 +241,7 @@ sequenceDiagram
 
 1. **Submission (`POST /v1/gigs/create`)**: The Buyer Agent initiates a request. The Cloudflare API intercepts it and responds with `402 Payment Required` and a Base64-encoded `PAYMENT-REQUIRED` JSON challenge.
 2. **Payment Validation**: The Buyer Agent signs an EIP-3009 `TransferWithAuthorization` and retries the request with the x402 v2 `PAYMENT-SIGNATURE` header.
-3. **Activation**: The embedded Facilitator verifies the signature and submits the transaction on-chain. The task is written to **Cloudflare D1** as `ACTIVE`.
+3. **Activation**: The configured facilitator verifies and settles through the explicit boundary. Only a final successful result exposes the created task.
 4. **Discovery (`GET /mcp` or `GET /v1/gigs/discover`)**: A Worker Agent queries the board or connects via standard MCP `StreamableHTTPClientTransport` to discover the task.
 5. **Grant delivery**: The paid create response contains the buyer's grant. The successful claim response contains only the winning worker's distinct grant. Treat both as secrets and never put them in URLs or logs.
 6. **Execution**: Each party upgrades `GET /v1/gigs/:id/tunnel` with `Authorization: Bearer <tunnel_grant.token>` and `X-Agent-Identity: <tunnel_grant.agent_identity>`. The capabilities are single-use and expire with the gig.

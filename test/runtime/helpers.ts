@@ -24,14 +24,25 @@ export function encodePaymentSignature(
   accepted: PaymentRequirements,
   options: { proof?: string; amount?: string; nonce: string }
 ): string {
+  const nonceBytes = new TextEncoder().encode(options.nonce);
+  const nonce = `0x${Array.from(nonceBytes.slice(0, 32))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+    .padEnd(64, '0')}`;
   return btoa(
     JSON.stringify({
       x402Version: 2,
       accepted,
       payload: {
-        proof: options.proof ?? 'valid',
-        amount: options.amount ?? accepted.amount,
-        nonce: options.nonce,
+        signature: options.proof === 'forged' ? '0x00' : `0x${'11'.repeat(65)}`,
+        authorization: {
+          from: '0x0000000000000000000000000000000000000002',
+          to: accepted.payTo,
+          value: options.amount ?? accepted.amount,
+          validAfter: '0',
+          validBefore: '9999999999',
+          nonce,
+        },
       },
     })
   );

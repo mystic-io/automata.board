@@ -5,6 +5,8 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 ENVIRONMENT = "development"
+FACILITATOR_MODE = "simulator"
+FACILITATOR_TIMEOUT_MS = "3000"
 
 # D1 Database Binding
 [[d1_databases]]
@@ -15,7 +17,7 @@ migrations_dir = "migrations"
 
 # Secrets (set via `wrangler secret put`):
 #   X402_PAY_TO
-#   WALLET_MNEMONIC
+#   X402_FACILITATOR_URL (production remote facilitator)
 
 # Durable Object Binding
 [[durable_objects.bindings]]
@@ -36,6 +38,8 @@ crons = ["*/15 * * * *"]
 [env.production]
 [env.production.vars]
 ENVIRONMENT = "production"
+FACILITATOR_MODE = "remote"
+FACILITATOR_TIMEOUT_MS = "3000"
 
 [env.production.triggers]
 crons = ["*/15 * * * *"]
