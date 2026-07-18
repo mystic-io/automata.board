@@ -16,9 +16,9 @@ flowchart LR
   A["Now: Trustworthy testnet slice\n2–4 engineer-weeks"] --> B["Next: Protocol-complete beta\n3–5 engineer-weeks"]
   B --> C["Later: Federated adoption\n4–8+ engineer-weeks"]
 
-  A --> A1["✓ Safe payment defaults"]
-  A --> A2["✓ Workerd tests + CI"]
-  A --> A3["Next: authenticated two-party tunnel"]
+  A --> A1["✓ Shipped M1: safety foundation"]
+  A --> A2["✓ Shipped M2: workerd runtime harness"]
+  A --> A3["M3: authenticated two-party tunnel grants"]
   A --> A4["Lifecycle + observability"]
 
   B --> B1["MCP create/claim/status parity"]
@@ -56,24 +56,35 @@ Dependencies: safety and tests precede tunnel/lifecycle changes. Tunnel grants
 depend on a settled agent-signature format. Cleanup is enabled only after clock
 and lifecycle integration tests exist.
 
-**Next implementation milestone:** authenticated two-party tunnel grants. Add
-signed, short-lived buyer/worker grants and third-peer rejection by extending
-the workerd WebSocket suite before changing the public tunnel contract.
+### Shipped milestones
 
-### Milestone 1 task board
+- [x] **Milestone 1 — production-readiness foundation:** Base Sepolia safety
+      defaults, stricter validation, executable unit tests, CI, dependency and
+      secret hygiene, and reviewed public documentation.
+- [x] **Milestone 2 — workerd runtime harness:** deterministic D1 lifecycle and
+      concurrency tests, Durable Object WebSocket coverage, simulated x402
+      verification/replay tests, MCP discovery, and CI runtime gates.
 
-- [x] Audit repository and run local baseline
-- [x] Choose and record north-star
-- [x] Pin Worker and simulators to Base Sepolia
-- [x] Replace zero-test success with initial executable validation/config tests
-- [x] Add CI verification workflow and dry-run build command
-- [x] Resolve dependency advisories and verify updated bundle
-- [ ] Bring simulator/diagnostic scripts into TypeScript and lint verification
-- [x] Add secret-free Cloudflare runtime harness for D1 lifecycle/concurrency,
-      Durable Object WebSockets, simulated x402 verification, and MCP
-- [ ] Add signed, expiring tunnel join grants and two-party enforcement
-- [ ] Model completion and expiry end to end
-- [ ] Align all machine-readable contracts and walkthroughs
+### Milestone 3 — authenticated two-party tunnel grants
+
+Extend the workerd WebSocket suite before changing the public tunnel contract.
+
+- [ ] Define a signed, short-lived grant schema bound to gig ID, role, agent
+      identity, issued-at time, expiry, and a single-use nonce.
+- [ ] Issue distinct buyer and worker grants at the appropriate lifecycle
+      transitions without exposing signing secrets to clients.
+- [ ] Verify signature, expiry, nonce, gig, role, and identity during the
+      WebSocket upgrade.
+- [ ] Enforce exactly one buyer and one worker and reject third peers.
+- [ ] Cover expired, replayed, role-swapped, identity-mismatched, and third-peer
+      attempts in workerd before documenting the contract.
+
+### Follow-on trustworthy-slice work
+
+- [ ] Bring simulator and diagnostic scripts into TypeScript and lint gates.
+- [ ] Model completion and expiry end to end.
+- [ ] Add lifecycle observability and enable tested scheduled cleanup.
+- [ ] Align machine-readable contracts and public walkthroughs.
 
 ## Next — protocol-complete beta
 
