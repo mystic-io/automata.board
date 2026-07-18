@@ -3,9 +3,9 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import EventSource from "eventsource";
 import WebSocket from "ws";
 import { config } from "dotenv";
-import { createWalletClient, http, fallback } from "viem";
+import { createWalletClient, http } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
-import { base } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 
 // Polyfill EventSource for Node.js
 (global as any).EventSource = EventSource;
@@ -20,16 +20,12 @@ if (!MNEMONIC) {
   throw new Error("Missing WALLET_MNEMONIC in .dev.vars");
 }
 
-// 1. Initialize Viem Wallet on Base Mainnet
+// 1. Initialize Viem Wallet on Base Sepolia
 const account = mnemonicToAccount(MNEMONIC, { accountIndex: 1 });
 const walletClient = createWalletClient({
   account,
-  chain: base,
-  transport: fallback([
-    http("https://base-rpc.publicnode.com"),
-    http("https://gateway.tenderly.co/public/base"),
-    http("https://base-mainnet.public.blastapi.io"),
-  ]),
+  chain: baseSepolia,
+  transport: http('https://sepolia.base.org'),
 });
 
 async function main() {
@@ -38,13 +34,7 @@ async function main() {
 
   // 2. Connect to embedded MCP server for Discovery
   console.log(`\n🔍 Connecting to MCP server at ${MCP_URL} for discovery...`);
-  const transport = new StreamableHTTPClientTransport(new URL(MCP_URL), {
-    requestInit: {
-      headers: {
-        Authorization: `Bearer ${process.env.MCP_API_KEY || 'test-mcp-key-123'}`,
-      }
-    }
-  });
+  const transport = new StreamableHTTPClientTransport(new URL(MCP_URL));
   const client = new Client(
     { name: "worker-agent", version: "1.0.0" },
     { capabilities: {} }

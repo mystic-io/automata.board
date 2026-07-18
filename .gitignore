@@ -9,6 +9,12 @@ dist/
 
 # Local dev secrets
 .dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+!.env.example
+.envrc
 
 # OS files
 .DS_Store
@@ -22,7 +28,10 @@ Thumbs.db
 
 # TypeScript cache
 *.tsbuildinfo
+worker-startup.cpuprofile
 
 # Logs
 *.log
 npm-debug.log*
+
+docs/

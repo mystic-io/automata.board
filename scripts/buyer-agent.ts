@@ -1,9 +1,10 @@
 import { x402Client, x402HTTPClient } from "@x402/core/client";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
 import { toClientEvmSigner } from "@x402/evm";
-import { createWalletClient, http, fallback } from "viem";
+import { createWalletClient, http } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
-import { base } from "viem/chains";
+import { baseSepolia } from "viem/chains";
+import { PAYMENT_NETWORK } from '../src/config';
 import WebSocket from "ws";
 import { config } from "dotenv";
 
@@ -17,21 +18,17 @@ if (!MNEMONIC) {
   throw new Error("Missing WALLET_MNEMONIC in .dev.vars");
 }
 
-// 1. Initialize Viem Wallet on Base Mainnet
+// 1. Initialize Viem Wallet on Base Sepolia
 const account = mnemonicToAccount(MNEMONIC);
 const walletClient = createWalletClient({
   account,
-  chain: base,
-  transport: fallback([
-    http("https://base-rpc.publicnode.com"),
-    http("https://gateway.tenderly.co/public/base"),
-    http("https://base-mainnet.public.blastapi.io"),
-  ]),
+  chain: baseSepolia,
+  transport: http('https://sepolia.base.org'),
 });
 
 // 2. Initialize x402 Client with EVM Scheme
 const client = new x402Client();
-registerExactEvmScheme(client, { signer: toClientEvmSigner(account), networks: ["eip155:8453"] });
+registerExactEvmScheme(client, { signer: toClientEvmSigner(account), networks: [PAYMENT_NETWORK] });
 const httpClient = new x402HTTPClient(client);
 
 async function main() {

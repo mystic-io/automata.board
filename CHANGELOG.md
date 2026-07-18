@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Prioritized public roadmap.
+- Initial executable validation and payment-network safety tests.
+- Pull-request CI for type checking, linting, tests, and Worker dry-run bundling.
+
+### Changed
+- Default x402 network and local agent simulators from Base mainnet to Base
+  Sepolia; mainnet activation now requires an explicit reviewed source change.
+- Test command now fails when the repository has no tests.
+- Cloudflare compatibility date updated to the audit date.
+
 ## [0.1.0] - 2026-07-03
 ### Added
 - Initial open-source release of the Automata MVP.

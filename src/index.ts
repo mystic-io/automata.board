@@ -13,17 +13,19 @@ import { handleClaimGig } from './handlers/claim-gig';
 import { handleAgentDocs } from './handlers/docs';
 import { handleOpenAPI } from './handlers/openapi';
 import { jsonResponse, errorResponse } from './utils/validation';
+import { PAYMENT_NETWORK, PAYMENT_NETWORK_NAME, PAYMENT_PRICE } from './config';
 import { createMcpHandler } from 'agents/mcp';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 import { paymentMiddleware, x402ResourceServer } from '@x402/hono';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
 import { x402Facilitator } from '@x402/core/facilitator';
+import type { FacilitatorClient } from '@x402/core/server';
 import { registerExactEvmScheme as registerFacilitatorEvm } from '@x402/evm/exact/facilitator';
 import { toFacilitatorEvmSigner } from '@x402/evm';
-import { createWalletClient, http, fallback, publicActions } from "viem";
+import { createWalletClient, http, publicActions } from 'viem';
 import { mnemonicToAccount } from "viem/accounts";
-import { base } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -35,7 +37,7 @@ const app = new Hono<{ Bindings: Env }>();
 app.use('*', cors({
   origin: '*',
   allowMethods: ['GET', 'POST', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization', 'X-PAYMENT'],
+  allowHeaders: ['Content-Type', 'Authorization', 'PAYMENT-SIGNATURE', 'X-PAYMENT'],
   maxAge: 86400,
 }));
 
@@ -51,24 +53,28 @@ app.use('/v1/gigs/create', async (c, next) => {
     return errorResponse('Payment configuration error', 500);
   }
 
-  // 1. Create a local Viem combined client (Wallet + Public) using fallback RPCs
+  // Create a testnet-only local facilitator. Mainnet activation requires an
+  // explicit, reviewed source change rather than an environment toggle.
   const account = mnemonicToAccount(c.env.WALLET_MNEMONIC);
   const combinedClient = createWalletClient({
     account,
-    chain: base,
-    transport: fallback([
-      http("https://base-rpc.publicnode.com"),
-      http("https://gateway.tenderly.co/public/base"),
-      http("https://base-mainnet.public.blastapi.io"),
-    ]),
+    chain: baseSepolia,
+    transport: http('https://sepolia.base.org'),
   }).extend(publicActions);
-  const signer = toFacilitatorEvmSigner(combinedClient as any);
+  // x402's narrow signer interface is structurally compatible with the viem
+  // client at runtime, but its generic method parameters are intentionally
+  // broader than viem's inferred chain-specific methods.
+  const signerClient = {
+    ...combinedClient,
+    address: account.address,
+  } as Parameters<typeof toFacilitatorEvmSigner>[0];
+  const signer = toFacilitatorEvmSigner(signerClient);
 
   // 2. Initialize the embedded Facilitator
   const localFacilitator = new x402Facilitator();
   registerFacilitatorEvm(localFacilitator, {
     signer,
-    networks: 'eip155:8453'
+    networks: PAYMENT_NETWORK
   });
 
   localFacilitator.onVerifyFailure(async (ctx) => {
@@ -79,16 +85,28 @@ app.use('/v1/gigs/create', async (c, next) => {
   });
 
   // 3. Mount it to the Resource Server
-  const resourceServer = new x402ResourceServer(localFacilitator as any)
-    .register('eip155:8453', new ExactEvmScheme());
+  const facilitatorClient: FacilitatorClient = {
+    verify: (payload, requirements) => localFacilitator.verify(payload, requirements),
+    settle: (payload, requirements) => localFacilitator.settle(payload, requirements),
+    getSupported: async () => {
+      const supported = localFacilitator.getSupported();
+      return {
+        ...supported,
+        kinds: supported.kinds.map((kind) => ({ ...kind, network: PAYMENT_NETWORK })),
+      };
+    },
+  };
+
+  const resourceServer = new x402ResourceServer(facilitatorClient)
+    .register(PAYMENT_NETWORK, new ExactEvmScheme());
 
   const middleware = paymentMiddleware(
     {
       'POST /v1/gigs/create': {
         accepts: {
           scheme: 'exact',
-          price: '$0.01',
-          network: 'eip155:8453', // Base Mainnet
+          price: PAYMENT_PRICE,
+          network: PAYMENT_NETWORK,
           payTo: c.env.X402_PAY_TO, // Dynamic from env
         },
         description: 'Post a gig to the Automata network',
@@ -241,13 +259,13 @@ app.get('/', async (c) => {
       discovery: 'mcp'
     },
     status: 'operational',
-    network: 'Base Mainnet (eip155:8453)',
+    network: `${PAYMENT_NETWORK_NAME} (${PAYMENT_NETWORK})`,
     active_tasks: activeBountiesCount,
     payment_requirements: {
       scheme: "exact",
-      network: "eip155:8453",
+      network: PAYMENT_NETWORK,
       token: "USDC",
-      price_per_gig: "$0.01"
+      price_per_gig: PAYMENT_PRICE
     },
     endpoints: {
       mcp: 'GET/POST /mcp',

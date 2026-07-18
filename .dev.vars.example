@@ -2,8 +2,5 @@
 X402_PAY_TO="0x0000000000000000000000000000000000000000"
 WALLET_MNEMONIC="your twelve word seed phrase here..."
 
-# API Key for MCP server authorization
-MCP_API_KEY="your-secret-mcp-key"
-
 # (Optional) Target API URL for running agent simulation scripts (defaults to http://127.0.0.1:8787)
 API_URL="http://127.0.0.1:8787"
