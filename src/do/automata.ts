@@ -252,7 +252,7 @@ export class Automata extends DurableObject<Env> {
   async reconnectTunnelSession(input: ReconnectTunnelSession): Promise<LifecycleResult> {
     const session = await this.requireSession();
     const duplicate = this.operationResult(session, input.message_id);
-    if (duplicate) return duplicate;
+    if (duplicate) return this.rejected(session, 'Reconnect operation was already applied');
     if (!['TUNNEL_GRANTED', 'IN_PROGRESS', 'DELIVERED'].includes(session.lifecycle_state)) {
       throw new Error(`Reconnect is unavailable from ${session.lifecycle_state}`);
     }

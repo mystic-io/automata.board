@@ -2,6 +2,7 @@ import { env } from 'cloudflare:workers';
 import { runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test';
 import { describe, expect, it, vi } from 'vitest';
 import type { Automata } from '../../src/do/automata';
+import { runScheduledReconciliation } from '../../src/services/reconciliation';
 import type { GigRecord, TunnelGrant, TunnelSessionState } from '../../src/types';
 import { createClaimedGig, postPaidGig, seedGig, workerFetch } from './helpers';
 
@@ -241,9 +242,8 @@ describe('gig lifecycle in workerd', () => {
     buyer.close(1000, 'network interruption');
     await new Promise((resolve) => setTimeout(resolve, 20));
 
-    const reconnect = await workerFetch(
-      `http://automata.test/v1/gigs/${fixture.gig.gig_id}/reconnect`,
-      {
+    const reconnectRequest = () =>
+      workerFetch(`http://automata.test/v1/gigs/${fixture.gig.gig_id}/reconnect`, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -254,11 +254,12 @@ describe('gig lifecycle in workerd', () => {
           sender: fixture.buyerGrant.agent_identity,
           role: 'buyer',
         }),
-      }
-    );
+      });
+    const reconnect = await reconnectRequest();
     expect(reconnect.status).toBe(200);
     const body = (await reconnect.json()) as { tunnel_grant: TunnelGrant };
     expect(body.tunnel_grant.token).not.toBe(fixture.buyerGrant.token);
+    expect((await reconnectRequest()).status).toBe(409);
     expect(
       (
         await workerFetch(`http://automata.test/v1/gigs/${fixture.gig.gig_id}/tunnel`, {
@@ -321,5 +322,13 @@ describe('gig lifecycle in workerd', () => {
       }),
     });
     expect(claimResponse.status).toBe(404);
+
+    await runScheduledReconciliation(env, 'corr-legacy-expiry');
+    const expired = await env.DB.prepare(
+      'SELECT status, lifecycle_state FROM agent_gigs WHERE gig_id = ?'
+    )
+      .bind(gigId)
+      .first<{ status: string; lifecycle_state: string }>();
+    expect(expired).toMatchObject({ status: 'EXPIRED', lifecycle_state: 'EXPIRED' });
   });
 });

@@ -141,6 +141,8 @@ export async function handleReconnect(c: AppContext): Promise<Response> {
       replacement_grant_hash: await hashTunnelGrant(replacement.token),
       correlation_id: c.get('correlationId'),
     });
+    if (result.accepted === false)
+      return errorResponse(result.rejection_reason ?? 'Reconnect rejected', 409);
     return jsonResponse({
       message: 'Reconnect grant issued',
       lifecycle,

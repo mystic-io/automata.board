@@ -1,6 +1,6 @@
 ALTER TABLE agent_gigs ADD COLUMN lifecycle_state TEXT NOT NULL DEFAULT 'POSTED';
 ALTER TABLE agent_gigs ADD COLUMN lifecycle_version INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE agent_gigs ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE agent_gigs ADD COLUMN updated_at TEXT;
 
 UPDATE agent_gigs
 SET lifecycle_state = CASE status

@@ -29,6 +29,7 @@ import {
   type PaymentMiddlewareProvider,
 } from './services/x402';
 import { logEvent, resolveCorrelationId, safeErrorName } from './services/observability';
+import { runScheduledReconciliation } from './services/reconciliation';
 
 type AutomataApp = Hono<{ Bindings: Env; Variables: RequestContextVariables }>;
 
@@ -323,30 +324,7 @@ const app = createApp();
 export default {
   fetch: app.fetch,
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
-    const correlationId = crypto.randomUUID();
-    try {
-      const rows = await env.DB.prepare(
-        `SELECT gig_id FROM agent_gigs WHERE lifecycle_state NOT IN ('CLOSED', 'CANCELLED', 'EXPIRED', 'FAILED') ORDER BY expires_at ASC LIMIT 100`
-      ).all<{ gig_id: string }>();
-      const results = await Promise.allSettled(
-        rows.results.map((row) =>
-          env.TUNNEL.getByName(row.gig_id).reconcileProjection(correlationId)
-        )
-      );
-      const rejected = results.filter((result) => result.status === 'rejected').length;
-      logEvent(rejected > 0 ? 'warn' : 'info', 'lifecycle.scheduled_reconciliation', {
-        correlation_id: correlationId,
-        outcome: rejected > 0 ? 'partial' : 'success',
-        checked: rows.results.length,
-        rejected,
-      });
-    } catch (err) {
-      logEvent('error', 'lifecycle.scheduled_reconciliation', {
-        correlation_id: correlationId,
-        outcome: 'failed',
-        error_name: safeErrorName(err),
-      });
-    }
+    await runScheduledReconciliation(env, crypto.randomUUID());
   },
 };
 export { Automata } from './do/automata';
