@@ -16,6 +16,15 @@ dist/
 !.env.example
 .envrc
 
+# Private key and wallet material
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+keystore*.json
+
 # OS files
 .DS_Store
 Thumbs.db
