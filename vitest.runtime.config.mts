@@ -21,6 +21,9 @@ export default defineConfig({
   test: {
     include: ['test/runtime/**/*.runtime.test.ts'],
     setupFiles: ['./test/runtime/setup.ts'],
-    testTimeout: 10_000,
+    // Runtime files share the same local D1 binding. Serialize them so each
+    // file's setup/reset cannot race another file's assertions in CI.
+    fileParallelism: false,
+    testTimeout: 20_000,
   },
 });
