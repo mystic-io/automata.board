@@ -19,4 +19,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run verify
+      - name: Typecheck Worker
+        run: npm run typecheck
+      - name: Typecheck runtime harness
+        run: npm run typecheck:runtime
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        run: npm test
+      - name: Workerd runtime tests
+        run: npm run test:runtime
+      - name: Wrangler dry-run bundle
+        run: npm run build

@@ -6,6 +6,7 @@
  */
 
 import { Hono } from 'hono';
+import type { MiddlewareHandler } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env, GigRecord } from './types';
 import { handleCreateGig } from './handlers/create-gig';
@@ -16,288 +17,242 @@ import { jsonResponse, errorResponse } from './utils/validation';
 import { PAYMENT_NETWORK, PAYMENT_NETWORK_NAME, PAYMENT_PRICE } from './config';
 import { createMcpHandler } from 'agents/mcp';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import {
+  createProductionPaymentMiddleware,
+  PaymentConfigurationError,
+  type PaymentMiddlewareProvider,
+} from './services/x402';
 
-import { paymentMiddleware, x402ResourceServer } from '@x402/hono';
-import { ExactEvmScheme } from '@x402/evm/exact/server';
-import { x402Facilitator } from '@x402/core/facilitator';
-import type { FacilitatorClient } from '@x402/core/server';
-import { registerExactEvmScheme as registerFacilitatorEvm } from '@x402/evm/exact/facilitator';
-import { toFacilitatorEvmSigner } from '@x402/evm';
-import { createWalletClient, http, publicActions } from 'viem';
-import { mnemonicToAccount } from "viem/accounts";
-import { baseSepolia } from "viem/chains";
+type AutomataApp = Hono<{ Bindings: Env }>;
 
-const app = new Hono<{ Bindings: Env }>();
+export interface AppDependencies {
+  createPaymentMiddleware: PaymentMiddlewareProvider;
+}
 
-// ---------------------------------------------------------------------------
-// Middleware
-// ---------------------------------------------------------------------------
+const DEFAULT_DEPENDENCIES: AppDependencies = {
+  createPaymentMiddleware: createProductionPaymentMiddleware,
+};
 
-// CORS preflight
-app.use('*', cors({
-  origin: '*',
-  allowMethods: ['GET', 'POST', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization', 'PAYMENT-SIGNATURE', 'X-PAYMENT'],
-  maxAge: 86400,
-}));
+export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES): AutomataApp {
+  const app = new Hono<{ Bindings: Env }>();
 
-// Apply payment middleware to /v1/gigs/create
-app.use('/v1/gigs/create', async (c, next) => {
-  if (!c.env.X402_PAY_TO) {
-    console.error('CRITICAL: X402_PAY_TO secret is missing');
-    return errorResponse('Payment configuration error', 500);
-  }
+  // ---------------------------------------------------------------------------
+  // Middleware
+  // ---------------------------------------------------------------------------
 
-  if (!c.env.WALLET_MNEMONIC) {
-    console.error('CRITICAL: WALLET_MNEMONIC secret is missing for local facilitator');
-    return errorResponse('Payment configuration error', 500);
-  }
-
-  // Create a testnet-only local facilitator. Mainnet activation requires an
-  // explicit, reviewed source change rather than an environment toggle.
-  const account = mnemonicToAccount(c.env.WALLET_MNEMONIC);
-  const combinedClient = createWalletClient({
-    account,
-    chain: baseSepolia,
-    transport: http('https://sepolia.base.org'),
-  }).extend(publicActions);
-  // x402's narrow signer interface is structurally compatible with the viem
-  // client at runtime, but its generic method parameters are intentionally
-  // broader than viem's inferred chain-specific methods.
-  const signerClient = {
-    ...combinedClient,
-    address: account.address,
-  } as Parameters<typeof toFacilitatorEvmSigner>[0];
-  const signer = toFacilitatorEvmSigner(signerClient);
-
-  // 2. Initialize the embedded Facilitator
-  const localFacilitator = new x402Facilitator();
-  registerFacilitatorEvm(localFacilitator, {
-    signer,
-    networks: PAYMENT_NETWORK
-  });
-
-  localFacilitator.onVerifyFailure(async (ctx) => {
-    console.error('Facilitator Verify Failed:', ctx.error);
-  });
-  localFacilitator.onSettleFailure(async (ctx) => {
-    console.error('Facilitator Settle Failed:', ctx.error);
-  });
-
-  // 3. Mount it to the Resource Server
-  const facilitatorClient: FacilitatorClient = {
-    verify: (payload, requirements) => localFacilitator.verify(payload, requirements),
-    settle: (payload, requirements) => localFacilitator.settle(payload, requirements),
-    getSupported: async () => {
-      const supported = localFacilitator.getSupported();
-      return {
-        ...supported,
-        kinds: supported.kinds.map((kind) => ({ ...kind, network: PAYMENT_NETWORK })),
-      };
-    },
-  };
-
-  const resourceServer = new x402ResourceServer(facilitatorClient)
-    .register(PAYMENT_NETWORK, new ExactEvmScheme());
-
-  const middleware = paymentMiddleware(
-    {
-      'POST /v1/gigs/create': {
-        accepts: {
-          scheme: 'exact',
-          price: PAYMENT_PRICE,
-          network: PAYMENT_NETWORK,
-          payTo: c.env.X402_PAY_TO, // Dynamic from env
-        },
-        description: 'Post a gig to the Automata network',
-      },
-    },
-    resourceServer
+  // CORS preflight
+  app.use(
+    '*',
+    cors({
+      origin: '*',
+      allowMethods: ['GET', 'POST', 'OPTIONS'],
+      allowHeaders: ['Content-Type', 'Authorization', 'PAYMENT-SIGNATURE', 'X-PAYMENT'],
+      maxAge: 86400,
+    })
   );
-  return middleware(c, next);
-});
 
-// ---------------------------------------------------------------------------
-// Routes
-// ---------------------------------------------------------------------------
+  // Apply payment middleware to /v1/gigs/create
+  app.use('/v1/gigs/create', async (c, next) => {
+    try {
+      const middleware: MiddlewareHandler = await dependencies.createPaymentMiddleware(c.env);
+      return middleware(c, next);
+    } catch (error) {
+      if (error instanceof PaymentConfigurationError) {
+        console.error(`CRITICAL: ${error.message}`);
+        return errorResponse('Payment configuration error', 500);
+      }
+      throw error;
+    }
+  });
 
-// Agent documentation and schema endpoints
-app.get('/.well-known/llms.txt', handleAgentDocs);
-app.get('/v1/system/docs', handleAgentDocs);
-app.get('/v1/openapi.json', handleOpenAPI);
+  // ---------------------------------------------------------------------------
+  // Routes
+  // ---------------------------------------------------------------------------
 
-// Create gig (protected by x402)
-app.post('/v1/gigs/create', handleCreateGig);
+  // Agent documentation and schema endpoints
+  app.get('/.well-known/llms.txt', handleAgentDocs);
+  app.get('/v1/system/docs', handleAgentDocs);
+  app.get('/v1/openapi.json', handleOpenAPI);
 
-// Claim gig
-app.post('/v1/gigs/claim', handleClaimGig);
+  // Create gig (protected by x402)
+  app.post('/v1/gigs/create', handleCreateGig);
 
-// WebSocket tunnel for a gig
-app.get('/v1/gigs/:id/tunnel', async (c) => {
-  const env = c.env;
-  const id = c.req.param('id');
-  
-  // Verify gig exists and is active/in-progress
-  const gig = await env.DB.prepare(
-    `SELECT status FROM agent_gigs WHERE gig_id = ? AND status IN ('ACTIVE', 'IN_PROGRESS')`
-  ).bind(id).first();
-  
-  if (!gig) {
-    return errorResponse('Gig not found or closed', 404);
-  }
+  // Claim gig
+  app.post('/v1/gigs/claim', handleClaimGig);
 
-  const doId = env.TUNNEL.idFromName(id);
-  const stub = env.TUNNEL.get(doId);
-  return stub.fetch(c.req.raw);
-});
+  // WebSocket tunnel for a gig
+  app.get('/v1/gigs/:id/tunnel', async (c) => {
+    const env = c.env;
+    const id = c.req.param('id');
 
-// List active gigs (public)
-app.get('/v1/gigs/discover', async (c) => {
-  const env = c.env;
-  try {
-    const result = await env.DB.prepare(
-      `SELECT gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, created_at, expires_at
+    // Verify gig exists and is active/in-progress
+    const gig = await env.DB.prepare(
+      `SELECT status FROM agent_gigs WHERE gig_id = ? AND status IN ('ACTIVE', 'IN_PROGRESS')`
+    )
+      .bind(id)
+      .first();
+
+    if (!gig) {
+      return errorResponse('Gig not found or closed', 404);
+    }
+
+    const doId = env.TUNNEL.idFromName(id);
+    const stub = env.TUNNEL.get(doId);
+    return stub.fetch(c.req.raw);
+  });
+
+  // List active gigs (public)
+  app.get('/v1/gigs/discover', async (c) => {
+    const env = c.env;
+    try {
+      const result = await env.DB.prepare(
+        `SELECT gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, created_at, expires_at
        FROM agent_gigs
        WHERE status = 'ACTIVE' AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
        ORDER BY expires_at DESC
        LIMIT 100`
-    ).all<GigRecord>();
+      ).all<GigRecord>();
 
-    return jsonResponse({
-      count: result.results.length,
-      gigs: result.results,
-    });
-  } catch (err) {
-    console.error('D1 query error:', err);
-    return errorResponse('Failed to fetch active gigs', 500);
-  }
-});
-
-// ---------------------------------------------------------------------------
-// MCP Server
-// ---------------------------------------------------------------------------
-
-app.all('/mcp/*', async (c) => {
-  const server = new McpServer({
-    name: "automata-mcp",
-    version: "0.1.0"
+      return jsonResponse({
+        count: result.results.length,
+        gigs: result.results,
+      });
+    } catch (err) {
+      console.error('D1 query error:', err);
+      return errorResponse('Failed to fetch active gigs', 500);
+    }
   });
 
-  server.registerTool(
-    "get_active_gigs",
-    {
-      description: "Get a list of currently active agent gigs on the Automata network.",
-    },
-    async () => {
-      try {
-        const result = await c.env.DB.prepare(
-          `SELECT gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, created_at, expires_at
+  // ---------------------------------------------------------------------------
+  // MCP Server
+  // ---------------------------------------------------------------------------
+
+  app.all('/mcp/*', async (c) => {
+    const server = new McpServer({
+      name: 'automata-mcp',
+      version: '0.1.0',
+    });
+
+    server.registerTool(
+      'get_active_gigs',
+      {
+        description: 'Get a list of currently active agent gigs on the Automata network.',
+      },
+      async () => {
+        try {
+          const result = await c.env.DB.prepare(
+            `SELECT gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, created_at, expires_at
            FROM agent_gigs
            WHERE status = 'ACTIVE' AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
            ORDER BY expires_at DESC
            LIMIT 100`
-        ).all<GigRecord>();
+          ).all<GigRecord>();
 
-        return {
-          content: [
-            { type: "text", text: JSON.stringify(result.results, null, 2) }
-          ]
-        };
-      } catch (err) {
-        console.error('MCP Tool Error (get_active_gigs):', err);
-        return {
-          content: [
-            { type: "text", text: JSON.stringify({ error: 'Failed to fetch gigs' }) }
-          ],
-          isError: true
-        };
+          return {
+            content: [{ type: 'text', text: JSON.stringify(result.results, null, 2) }],
+          };
+        } catch (err) {
+          console.error('MCP Tool Error (get_active_gigs):', err);
+          return {
+            content: [{ type: 'text', text: JSON.stringify({ error: 'Failed to fetch gigs' }) }],
+            isError: true,
+          };
+        }
       }
-    }
-  );
+    );
 
-  const handler = createMcpHandler(server, { route: '/mcp' });
-  return handler(c.req.raw, c.env, c.executionCtx as any);
-});
-
-// Health checks
-const healthCheck = () => jsonResponse({
-  service: 'automata',
-  version: '0.1.0',
-  status: 'operational',
-  timestamp: new Date().toISOString(),
-});
-
-app.get('/', async (c) => {
-  const acceptHeader = c.req.header('accept') || '';
-  
-  if (acceptHeader.includes('text/markdown')) {
-    return c.redirect('/.well-known/llms.txt', 307);
-  }
-
-  const env = c.env;
-  let activeBountiesCount = 0;
-  
-  try {
-    const result = await env.DB.prepare(
-      `SELECT COUNT(*) as count FROM agent_gigs WHERE status = 'ACTIVE' AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
-    ).first<{ count: number }>();
-    if (result) {
-      activeBountiesCount = result.count;
-    }
-  } catch (err) {
-    console.error('Failed to fetch active bounties count for root payload', err);
-  }
-
-  return jsonResponse({
-    role: 'registry',
-    name: 'Automata Agentic Gig Board',
-    description: 'Decentralized gig board for autonomous AI agents.',
-    api_version: '0.1.0',
-    protocols: {
-      identity: 'agent-agnostic pubkey',
-      payments: 'x402',
-      discovery: 'mcp'
-    },
-    status: 'operational',
-    network: `${PAYMENT_NETWORK_NAME} (${PAYMENT_NETWORK})`,
-    active_tasks: activeBountiesCount,
-    payment_requirements: {
-      scheme: "exact",
-      network: PAYMENT_NETWORK,
-      token: "USDC",
-      price_per_gig: PAYMENT_PRICE
-    },
-    endpoints: {
-      mcp: 'GET/POST /mcp',
-      create_task: 'POST /v1/gigs/create',
-      claim_task: 'POST /v1/gigs/claim',
-      list_tasks: 'GET /v1/gigs/discover',
-      tunnel: 'GET /v1/gigs/:id/tunnel',
-      docs: 'GET /.well-known/llms.txt',
-      schema: 'GET /v1/openapi.json'
-    },
-    supported_tasks: ['web_scrape', 'data_extraction', 'computation', 'api_relay', 'custom'],
-    disclaimer: 'Automata solely facilitates the introduction and connection between agents. Payment terms, task verification, and final delivery must be negotiated and settled directly between the buyer and worker agents over the real-time tunnel.'
+    const handler = createMcpHandler(server, { route: '/mcp' });
+    // Hono's local ExecutionContext interface omits newer Workers fields such
+    // as tracing, but the runtime object is the platform ExecutionContext.
+    return handler(c.req.raw, c.env, c.executionCtx as ExecutionContext);
   });
-});
 
-app.get('/health', healthCheck);
+  // Health checks
+  const healthCheck = () =>
+    jsonResponse({
+      service: 'automata',
+      version: '0.1.0',
+      status: 'operational',
+      timestamp: new Date().toISOString(),
+    });
 
-// Global error handler
-app.onError((err, c) => {
-  console.error('Unhandled error:', err);
-  const isDev = c.env.ENVIRONMENT === 'development';
-  return errorResponse(
-    'Internal server error',
-    500,
-    isDev && err instanceof Error ? { message: err.message } : undefined
-  );
-});
+  app.get('/', async (c) => {
+    const acceptHeader = c.req.header('accept') || '';
 
-// 404 handler
-app.notFound((c) => {
-  return errorResponse(`Route not found: ${c.req.method} ${c.req.path}`, 404);
-});
+    if (acceptHeader.includes('text/markdown')) {
+      return c.redirect('/.well-known/llms.txt', 307);
+    }
+
+    const env = c.env;
+    let activeBountiesCount = 0;
+
+    try {
+      const result = await env.DB.prepare(
+        `SELECT COUNT(*) as count FROM agent_gigs WHERE status = 'ACTIVE' AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
+      ).first<{ count: number }>();
+      if (result) {
+        activeBountiesCount = result.count;
+      }
+    } catch (err) {
+      console.error('Failed to fetch active bounties count for root payload', err);
+    }
+
+    return jsonResponse({
+      role: 'registry',
+      name: 'Automata Agentic Gig Board',
+      description: 'Decentralized gig board for autonomous AI agents.',
+      api_version: '0.1.0',
+      protocols: {
+        identity: 'agent-agnostic pubkey',
+        payments: 'x402',
+        discovery: 'mcp',
+      },
+      status: 'operational',
+      network: `${PAYMENT_NETWORK_NAME} (${PAYMENT_NETWORK})`,
+      active_tasks: activeBountiesCount,
+      payment_requirements: {
+        scheme: 'exact',
+        network: PAYMENT_NETWORK,
+        token: 'USDC',
+        price_per_gig: PAYMENT_PRICE,
+      },
+      endpoints: {
+        mcp: 'GET/POST /mcp',
+        create_task: 'POST /v1/gigs/create',
+        claim_task: 'POST /v1/gigs/claim',
+        list_tasks: 'GET /v1/gigs/discover',
+        tunnel: 'GET /v1/gigs/:id/tunnel',
+        docs: 'GET /.well-known/llms.txt',
+        schema: 'GET /v1/openapi.json',
+      },
+      supported_tasks: ['web_scrape', 'data_extraction', 'computation', 'api_relay', 'custom'],
+      disclaimer:
+        'Automata solely facilitates the introduction and connection between agents. Payment terms, task verification, and final delivery must be negotiated and settled directly between the buyer and worker agents over the real-time tunnel.',
+    });
+  });
+
+  app.get('/health', healthCheck);
+
+  // Global error handler
+  app.onError((err, c) => {
+    console.error('Unhandled error:', err);
+    const isDev = c.env.ENVIRONMENT === 'development';
+    return errorResponse(
+      'Internal server error',
+      500,
+      isDev && err instanceof Error ? { message: err.message } : undefined
+    );
+  });
+
+  // 404 handler
+  app.notFound((c) => {
+    return errorResponse(`Route not found: ${c.req.method} ${c.req.path}`, 404);
+  });
+
+  return app;
+}
+
+const app = createApp();
 
 export default {
   fetch: app.fetch,
@@ -310,7 +265,7 @@ export default {
          WHERE status IN ('ACTIVE', 'PENDING_PAYMENT') 
          AND expires_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
       ).run();
-      
+
       console.log(`Cron soft-deleted expired tasks. Rows updated: ${expireResult.meta.changes}`);
 
       // 2. Hard-prune unmatched or unpaid tasks exactly 2 hours post-creation (PRD Requirement 7)
@@ -324,6 +279,6 @@ export default {
     } catch (err) {
       console.error('Failed to run scheduled gig pruning:', err);
     }
-  }
+  },
 };
 export { Automata } from './do/automata';

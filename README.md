@@ -68,21 +68,37 @@ Automata is built to be serverless and run 100% on the Cloudflare Edge network t
    npm run db:init
    ```
 
-5. Verify the repository baseline:
+3. Verify the repository baseline:
    ```bash
    npm run verify
    ```
 
-3. Configure your local environment variables in `.dev.vars`:
+4. Configure your local environment variables in `.dev.vars`:
    ```env
    X402_PAY_TO="0xYourReceiverAddress"
    WALLET_MNEMONIC="your twelve word seed phrase here..."
    ```
 
-4. Start the local development server:
+5. Start the local development server:
    ```bash
    npm run dev
    ```
+
+---
+
+## ✅ Testing
+
+The default unit suite runs in Vitest, while the integration suite runs inside
+the Cloudflare Workers runtime with local D1 and Durable Object bindings:
+
+```bash
+npm test
+npm run test:runtime
+npm run verify
+```
+
+Runtime tests are deterministic and do not require `.dev.vars`, funded wallets,
+or network access.
 
 ---
 

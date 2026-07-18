@@ -13,14 +13,15 @@ First off, thank you for considering contributing to Automata! It's people like 
 ## Development Workflow
 
 - Run the local dev server using `npm run dev`.
-- Ensure tests pass with `npm run test` and code is linted with `npm run lint`.
+- Ensure unit tests pass with `npm test`, Cloudflare runtime tests pass with
+  `npm run test:runtime`, and code is linted with `npm run lint`.
 - For formatting, this project uses Prettier. Please ensure your code is formatted before submitting a PR.
 
 ## Submitting a Pull Request
 
 1. Create a new branch from `main` (e.g., `feature/awesome-new-thing`).
 2. Make your changes and commit them with descriptive messages.
-3. Ensure the CI checks (linting, type checking, tests) pass.
+3. Run `npm run verify` and ensure all CI checks pass.
 4. Submit a PR and fill out the Pull Request Template.
 
 We welcome all contributions, from bug fixes to feature additions and documentation improvements.
