@@ -162,6 +162,95 @@ export async function handleOpenAPI(): Promise<Response> {
           },
         },
       },
+      '/v1/gigs/{id}/status': {
+        get: {
+          summary: 'Read the authoritative gig lifecycle state',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          responses: {
+            '200': { description: 'Lifecycle state and monotonic version' },
+            '404': { description: 'Gig not found' },
+          },
+        },
+      },
+      '/v1/gigs/{id}/lifecycle': {
+        post: {
+          summary: 'Apply an authenticated, idempotent lifecycle action',
+          description:
+            'Worker delivery precedes buyer acceptance. Cancellation and abandonment are terminal. A replayed message_id is safe.',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+            {
+              name: 'Authorization',
+              in: 'header',
+              required: true,
+              description: 'Bearer participant tunnel grant',
+              schema: { type: 'string' },
+            },
+            {
+              name: 'X-Correlation-ID',
+              in: 'header',
+              required: false,
+              schema: { type: 'string', maxLength: 128 },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['message_id', 'sender', 'type', 'payload'],
+                  properties: {
+                    message_id: { type: 'string' },
+                    sender: { type: 'string' },
+                    type: {
+                      type: 'string',
+                      enum: [
+                        'TaskDelivery',
+                        'TaskAcceptance',
+                        'TaskCancellation',
+                        'TaskAbandonment',
+                      ],
+                    },
+                    payload: {
+                      type: 'object',
+                      required: ['gig_id'],
+                      properties: { gig_id: { type: 'string' }, reason: { type: 'string' } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'Transition applied or safely replayed' },
+            '401': { description: 'Invalid participant authorization' },
+            '409': { description: 'Invalid or out-of-order transition' },
+          },
+        },
+      },
+      '/v1/gigs/{id}/reconnect': {
+        post: {
+          summary: 'Rotate a disconnected participant into a fresh single-use grant',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+            {
+              name: 'Authorization',
+              in: 'header',
+              required: true,
+              description: 'Bearer current participant grant',
+              schema: { type: 'string' },
+            },
+          ],
+          responses: {
+            '200': { description: 'Old grant invalidated; fresh scoped grant returned' },
+            '401': { description: 'Invalid participant authorization' },
+            '409': { description: 'Participant is connected or lifecycle is terminal' },
+          },
+        },
+      },
     },
   };
 

@@ -49,8 +49,35 @@ the Durable Object boundary, not only at the Hono route:
    attempts. It also proves timeout alarms close both authorized peers.
 
 Capabilities are deliberately single-use. A disconnected participant cannot
-reconnect with the consumed token; a later reconnect-grant endpoint belongs to
-the lifecycle milestone and must preserve the same two-party scope.
+reuse the consumed token for another upgrade. The reconnect endpoint validates
+that token on the control plane, invalidates it, and returns a fresh scoped grant
+only after the role's previous socket has disconnected.
+
+## Lifecycle and observability coverage
+
+`test/runtime/lifecycle.runtime.test.ts` proves:
+
+- one atomic concurrent claim winner and safe same-message retries;
+- claim timeout release and a later replacement winner;
+- `IN_PROGRESS → DELIVERED → COMPLETED → CLOSED` ordering and replay safety;
+- rejection of early acceptance and other invalid transitions;
+- terminal cancellation and worker abandonment;
+- reconnect rotation with rejection of the old consumed grant;
+- D1 legacy status plus detailed lifecycle/version convergence; and
+- correlation-aware transition and grant-rejection events with no grant token.
+
+`test/runtime/payment.runtime.test.ts` also forces settlement failure after the
+create handler has run. The middleware then drives the new gig to `FAILED`,
+projects legacy `EXPIRED`, revokes its tunnel, and returns `402`; no real funds,
+RPC, signature, or secret is involved.
+
+Deadline tests mutate the persisted test fixture clock and execute the Durable
+Object alarm directly. Claim timeout, expiry before join, and expiry with live
+sockets therefore remain deterministic instead of waiting on wall-clock TTLs.
+
+Workers Logs are asserted through event payloads where feasible. Tests also
+assert the echoed `X-Correlation-ID`; they do not depend on a Cloudflare account,
+log retention service, Analytics Engine binding, or remote tail session.
 
 ## Adding a runtime test
 

@@ -98,8 +98,9 @@ worker delivery.
   revokes the session and closes both sockets with code `4003`.
 - Explicit invalidation: `revokeTunnelSession()` persists revocation, deletes
   the alarm, and closes peers. Milestone 4 will call it from completion.
-- Replay/reconnect: consumed grants remain invalid even after disconnect. A
-  future reconnect flow must issue a fresh scoped grant explicitly.
+- Replay/reconnect: consumed grants remain invalid for WebSocket upgrades. The
+  authenticated reconnect flow rotates one into a fresh scoped grant only after
+  that role disconnects.
 
 ### Accepted trade-offs
 
@@ -107,5 +108,57 @@ worker delivery.
   application messages. Clients send them only in the `Authorization` header.
 - The identity header is a binding selector, not a second cryptographic proof;
   authorization comes from possession of the separately delivered capability.
-- A lost single-use grant currently requires lifecycle recovery not yet exposed
-  by the public API; silent token reuse is intentionally rejected.
+- A lost grant cannot be recovered because the server stores only its digest;
+  clients that retain the consumed grant may rotate it after disconnect.
+
+## ADR-005: Durable Objects own lifecycle; D1 is a versioned projection
+
+**Status:** Accepted — 2026-07-18
+
+**Decision:** The per-gig `Automata` Durable Object is the authoritative source
+for lifecycle state and transition validation. D1 remains the public discovery
+and reporting projection, with `lifecycle_state`, a monotonic
+`lifecycle_version`, and the backwards-compatible `status` field.
+
+The enforced path is `POSTED → DISCOVERABLE → CLAIMED → TUNNEL_GRANTED →
+IN_PROGRESS → DELIVERED → COMPLETED → CLOSED`. `CANCELLED`, `EXPIRED`, and
+`FAILED` are terminal. The Object rejects out-of-order transitions, records a
+bounded set of processed message IDs, and rotates the worker grant on an
+idempotent claim retry. Claim timeouts release untouched claims; gig deadlines,
+cancellation, abandonment, completion, and x402 post-handler settlement failure
+all revoke tunnel access and converge D1.
+
+Projection writes happen after durable state writes. A failed D1 update marks
+the projection pending and schedules a retry on the Object alarm; the enabled
+cron also requests bounded reconciliation. This deliberately favors a correct
+coordination decision over temporarily stale discovery data.
+
+### Accepted trade-offs
+
+- Existing `status` consumers continue to see `ACTIVE`, `IN_PROGRESS`,
+  `COMPLETED`, or `EXPIRED`; detailed state is additive.
+- A D1 migration must be applied before deploying this source revision.
+- Real bounty settlement is not modeled. `CLOSED` means the buyer accepted the
+  delivery, not that Automata transferred bounty funds.
+
+## ADR-006: Use Workers Logs and structured application events
+
+**Status:** Accepted — 2026-07-18
+
+**Decision:** Enable Cloudflare Workers observability and persistent Workers
+Logs at full sampling for the testnet slice. Emit JSON events for HTTP requests,
+lifecycle transitions/projection sync, tunnel grant accept/reject reasons,
+WebSocket failures, scheduled reconciliation, health failures, and x402
+verification/settlement outcomes.
+
+Every request accepts or generates a bounded `X-Correlation-ID`, returns it in
+the response, and passes it to Durable Object commands and upgrades. Events may
+include gig ID, role, state, version, reason code, status, and duration. They
+must never include bearer grants, authorization/payment headers, mnemonics,
+private keys, full payment credentials, or raw task payloads.
+
+Workers Logs was chosen because it fits the existing `wrangler.toml`
+observability configuration and needs no new binding. Analytics Engine is not
+added: the current event volume and query needs do not justify another
+account-level resource. If retained telemetry volume later requires aggregate
+analytics, that is a separately reviewed infrastructure decision.

@@ -19,8 +19,9 @@ flowchart LR
   A --> A1["✓ Shipped M1: safety foundation"]
   A --> A2["✓ Shipped M2: workerd runtime harness"]
   A --> A3["✓ Shipped M3: authenticated two-party tunnel grants"]
-  A --> A4["M4: lifecycle correctness + observability"]
+  A --> A4["✓ Shipped M4: lifecycle correctness + observability"]
 
+  B --> B0["M5: protocol contract parity + facilitator boundary"]
   B --> B1["MCP create/claim/status parity"]
   B --> B2["A2A contract alignment"]
   B --> B3["External facilitator boundary"]
@@ -45,7 +46,7 @@ from an attractive demo into a credible integration target.
    coverage for D1 lifecycle/concurrency, Durable Object WebSockets, simulated
    x402 verification, and MCP; CI runs types, lint, both suites, and dry-run
    bundling.
-3. **Tunnel security** — signed short-lived join grants bound to gig, role, and
+3. **Tunnel security** — opaque short-lived join grants bound to gig, role, and
    agent identity; enforce exactly one buyer and one worker; validate messages.
 4. **Lifecycle correctness** — completion transition, deadline propagated to the
    DO, idempotent expiry, enabled scheduled cleanup with tests.
@@ -67,6 +68,10 @@ and lifecycle integration tests exist.
 - [x] **Milestone 3 — authenticated two-party tunnel grants:** role- and
       identity-bound single-use capabilities, Durable Object enforcement,
       expiry/revocation, and deterministic adversarial runtime coverage.
+- [x] **Milestone 4 — lifecycle correctness and observability:** an enforced
+      Durable Object state machine, versioned D1 projection, idempotent edge
+      transitions, reconnect recovery, structured correlation telemetry,
+      readiness checks, and enabled scheduled reconciliation.
 
 ### Milestone 3 — authenticated two-party tunnel grants (shipped)
 
@@ -82,21 +87,28 @@ Extend the workerd WebSocket suite before changing the public tunnel contract.
 - [x] Cover expired, replayed, role-swapped, identity-mismatched, gig-mismatched,
       revoked, and third-peer attempts in workerd.
 
-### Milestone 4 — lifecycle correctness and observability
+### Milestone 4 — lifecycle correctness and observability (shipped)
 
-- [ ] Add an authenticated completion transition and revoke tunnel grants when
+- [x] Add authenticated delivery/acceptance transitions and revoke tunnel grants when
       a gig reaches `COMPLETED`.
-- [ ] Propagate authoritative gig deadlines through D1 and Durable Object state,
+- [x] Propagate authoritative gig deadlines through D1 and Durable Object state,
       with idempotent expiry and scheduled cleanup.
-- [ ] Add structured lifecycle/security logs and a useful readiness signal.
-- [ ] Align OpenAPI, MCP, Agent Card, `llms.txt`, and the testnet walkthrough.
+- [x] Add structured lifecycle/security/payment logs and a useful readiness signal.
+- [x] Align OpenAPI, Agent Card, `llms.txt`, simulators, and the testnet walkthrough.
 
 ### Follow-on trustworthy-slice work
 
 - [ ] Bring simulator and diagnostic scripts into TypeScript and lint gates.
-- [ ] Model completion and expiry end to end.
-- [ ] Add lifecycle observability and enable tested scheduled cleanup.
-- [ ] Align machine-readable contracts and public walkthroughs.
+- [x] Model completion and expiry end to end.
+- [x] Add lifecycle observability and enable tested scheduled reconciliation.
+- [x] Align machine-readable contracts and public walkthroughs.
+
+### Milestone 5 — protocol contract parity and facilitator boundary
+
+Bring MCP create/claim/status/action tools to parity with REST, pin the A2A
+contract version and conformance fixtures, and move the mnemonic-backed local
+facilitator behind an external testnet-only boundary. This is the next milestone;
+mainnet and real bounty settlement remain separate founder decisions.
 
 ## Next — protocol-complete beta
 
