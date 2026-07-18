@@ -14,7 +14,11 @@ import { handleClaimGig } from './handlers/claim-gig';
 import { handleAgentDocs } from './handlers/docs';
 import { handleOpenAPI } from './handlers/openapi';
 import { handleTunnelConnect } from './handlers/tunnel';
-import { handleLifecycleAction, handleLifecycleStatus, handleReconnect } from './handlers/lifecycle';
+import {
+  handleLifecycleAction,
+  handleLifecycleStatus,
+  handleReconnect,
+} from './handlers/lifecycle';
 import { jsonResponse, errorResponse } from './utils/validation';
 import { PAYMENT_NETWORK, PAYMENT_NETWORK_NAME, PAYMENT_PRICE } from './config';
 import { createMcpHandler } from 'agents/mcp';
@@ -207,10 +211,28 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
   const healthCheck = async (c: Parameters<typeof handleLifecycleStatus>[0]) => {
     try {
       await c.env.DB.prepare('SELECT 1 AS ready').first<{ ready: number }>();
-      return jsonResponse({ service: 'automata', version: '0.1.0', status: 'ready', checks: { d1: 'ready', lifecycle_coordinator: 'configured', observability: 'enabled' }, timestamp: new Date().toISOString() });
+      return jsonResponse({
+        service: 'automata',
+        version: '0.1.0',
+        status: 'ready',
+        checks: { d1: 'ready', lifecycle_coordinator: 'configured', observability: 'enabled' },
+        timestamp: new Date().toISOString(),
+      });
     } catch (error) {
-      logEvent('error', 'health.readiness_failed', { correlation_id: c.get('correlationId'), outcome: 'not_ready', error_name: safeErrorName(error) });
-      return jsonResponse({ service: 'automata', status: 'not_ready', checks: { d1: 'failed' }, timestamp: new Date().toISOString() }, 503);
+      logEvent('error', 'health.readiness_failed', {
+        correlation_id: c.get('correlationId'),
+        outcome: 'not_ready',
+        error_name: safeErrorName(error),
+      });
+      return jsonResponse(
+        {
+          service: 'automata',
+          status: 'not_ready',
+          checks: { d1: 'failed' },
+          timestamp: new Date().toISOString(),
+        },
+        503
+      );
     }
   };
 
@@ -275,7 +297,11 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
 
   // Global error handler
   app.onError((err, c) => {
-    logEvent('error', 'http.unhandled_error', { correlation_id: c.get('correlationId'), error_name: safeErrorName(err), path: c.req.path });
+    logEvent('error', 'http.unhandled_error', {
+      correlation_id: c.get('correlationId'),
+      error_name: safeErrorName(err),
+      path: c.req.path,
+    });
     const isDev = c.env.ENVIRONMENT === 'development';
     return errorResponse(
       'Internal server error',
@@ -302,11 +328,24 @@ export default {
       const rows = await env.DB.prepare(
         `SELECT gig_id FROM agent_gigs WHERE lifecycle_state NOT IN ('CLOSED', 'CANCELLED', 'EXPIRED', 'FAILED') ORDER BY expires_at ASC LIMIT 100`
       ).all<{ gig_id: string }>();
-      const results = await Promise.allSettled(rows.results.map((row) => env.TUNNEL.getByName(row.gig_id).reconcileProjection(correlationId)));
+      const results = await Promise.allSettled(
+        rows.results.map((row) =>
+          env.TUNNEL.getByName(row.gig_id).reconcileProjection(correlationId)
+        )
+      );
       const rejected = results.filter((result) => result.status === 'rejected').length;
-      logEvent(rejected > 0 ? 'warn' : 'info', 'lifecycle.scheduled_reconciliation', { correlation_id: correlationId, outcome: rejected > 0 ? 'partial' : 'success', checked: rows.results.length, rejected });
+      logEvent(rejected > 0 ? 'warn' : 'info', 'lifecycle.scheduled_reconciliation', {
+        correlation_id: correlationId,
+        outcome: rejected > 0 ? 'partial' : 'success',
+        checked: rows.results.length,
+        rejected,
+      });
     } catch (err) {
-      logEvent('error', 'lifecycle.scheduled_reconciliation', { correlation_id: correlationId, outcome: 'failed', error_name: safeErrorName(err) });
+      logEvent('error', 'lifecycle.scheduled_reconciliation', {
+        correlation_id: correlationId,
+        outcome: 'failed',
+        error_name: safeErrorName(err),
+      });
     }
   },
 };

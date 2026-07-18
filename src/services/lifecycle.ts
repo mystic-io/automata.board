@@ -25,10 +25,7 @@ export class InvalidLifecycleTransitionError extends Error {
   }
 }
 
-export function assertLifecycleTransition(
-  from: GigLifecycleState,
-  to: GigLifecycleState
-): void {
+export function assertLifecycleTransition(from: GigLifecycleState, to: GigLifecycleState): void {
   if (!ALLOWED_TRANSITIONS[from].includes(to)) {
     throw new InvalidLifecycleTransitionError(from, to);
   }
