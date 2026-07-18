@@ -51,6 +51,11 @@ describe('gig lifecycle in workerd', () => {
     expect(claimed.tunnel_grant.role).toBe('worker');
     expect(['0xworker-a', '0xworker-b']).toContain(claimed.tunnel_grant.agent_identity);
 
+    const retry = await claim(claimed.tunnel_grant.agent_identity);
+    expect(retry.status).toBe(200);
+    const retried = (await retry.json()) as ClaimedGigResponse;
+    expect(retried.tunnel_grant.token).not.toBe(claimed.tunnel_grant.token);
+
     const row = await env.DB.prepare(
       'SELECT status, worker_pubkey FROM agent_gigs WHERE gig_id = ?'
     )
@@ -123,7 +128,10 @@ describe('gig lifecycle in workerd', () => {
       'TaskDelivery',
       'deliver-once'
     );
-    expect(await replayedDelivery.json()).toMatchObject({ lifecycle_state: 'DELIVERED', duplicate: true });
+    expect(await replayedDelivery.json()).toMatchObject({
+      lifecycle_state: 'DELIVERED',
+      duplicate: true,
+    });
 
     const acceptance = await lifecycleAction(
       fixture.gig.gig_id,
@@ -140,27 +148,59 @@ describe('gig lifecycle in workerd', () => {
       'TaskAcceptance',
       'accept-once'
     );
-    expect(await replayedAcceptance.json()).toMatchObject({ lifecycle_state: 'CLOSED', duplicate: true });
+    expect(await replayedAcceptance.json()).toMatchObject({
+      lifecycle_state: 'CLOSED',
+      duplicate: true,
+    });
 
     const row = await env.DB.prepare(
       'SELECT status, lifecycle_state, lifecycle_version FROM agent_gigs WHERE gig_id = ?'
-    ).bind(fixture.gig.gig_id).first<{ status: string; lifecycle_state: string; lifecycle_version: number }>();
-    expect(row).toMatchObject({ status: 'COMPLETED', lifecycle_state: 'CLOSED', lifecycle_version: 7 });
+    )
+      .bind(fixture.gig.gig_id)
+      .first<{ status: string; lifecycle_state: string; lifecycle_version: number }>();
+    expect(row).toMatchObject({
+      status: 'COMPLETED',
+      lifecycle_state: 'CLOSED',
+      lifecycle_version: 7,
+    });
     workerSocket.close(1000, 'test complete');
   });
 
   it('handles cancellation and worker abandonment as terminal, replay-safe paths', async () => {
     const cancellable = await postPaidGig('lifecycle-cancel');
     const created = (await cancellable.json()) as CreatedGigResponse;
-    const cancelled = await lifecycleAction(created.gig.gig_id, created.tunnel_grant, 'TaskCancellation', 'cancel-once');
-    expect(await cancelled.json()).toMatchObject({ lifecycle_state: 'CANCELLED', duplicate: false });
-    const cancelledReplay = await lifecycleAction(created.gig.gig_id, created.tunnel_grant, 'TaskCancellation', 'cancel-once');
-    expect(await cancelledReplay.json()).toMatchObject({ lifecycle_state: 'CANCELLED', duplicate: true });
+    const cancelled = await lifecycleAction(
+      created.gig.gig_id,
+      created.tunnel_grant,
+      'TaskCancellation',
+      'cancel-once'
+    );
+    expect(await cancelled.json()).toMatchObject({
+      lifecycle_state: 'CANCELLED',
+      duplicate: false,
+    });
+    const cancelledReplay = await lifecycleAction(
+      created.gig.gig_id,
+      created.tunnel_grant,
+      'TaskCancellation',
+      'cancel-once'
+    );
+    expect(await cancelledReplay.json()).toMatchObject({
+      lifecycle_state: 'CANCELLED',
+      duplicate: true,
+    });
 
     const abandoned = await createClaimedGig('lifecycle-abandon');
-    const abandonedResult = await lifecycleAction(abandoned.gig.gig_id, abandoned.workerGrant, 'TaskAbandonment', 'abandon-once');
+    const abandonedResult = await lifecycleAction(
+      abandoned.gig.gig_id,
+      abandoned.workerGrant,
+      'TaskAbandonment',
+      'abandon-once'
+    );
     expect(await abandonedResult.json()).toMatchObject({ lifecycle_state: 'FAILED' });
-    expect((await workerFetch(`http://automata.test/v1/gigs/${abandoned.gig.gig_id}/status`)).status).toBe(200);
+    expect(
+      (await workerFetch(`http://automata.test/v1/gigs/${abandoned.gig.gig_id}/status`)).status
+    ).toBe(200);
   });
 
   it('releases an untouched claim after timeout and permits a new atomic winner', async () => {
@@ -175,13 +215,22 @@ describe('gig lifecycle in workerd', () => {
     });
     expect(await runDurableObjectAlarm(stub)).toBe(true);
     expect(await stub.getLifecycle()).toMatchObject({ lifecycle_state: 'DISCOVERABLE' });
-    const row = await env.DB.prepare('SELECT status, worker_pubkey FROM agent_gigs WHERE gig_id = ?')
-      .bind(fixture.gig.gig_id).first<{ status: string; worker_pubkey: string | null }>();
+    const row = await env.DB.prepare(
+      'SELECT status, worker_pubkey FROM agent_gigs WHERE gig_id = ?'
+    )
+      .bind(fixture.gig.gig_id)
+      .first<{ status: string; worker_pubkey: string | null }>();
     expect(row).toMatchObject({ status: 'ACTIVE', worker_pubkey: null });
 
     const replacementClaim = await workerFetch('http://automata.test/v1/gigs/claim', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ message_id: 'replacement-claim', sender: '0xreplacement-worker', type: 'TaskClaim', payload: { gig_id: fixture.gig.gig_id } }),
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        message_id: 'replacement-claim',
+        sender: '0xreplacement-worker',
+        type: 'TaskClaim',
+        payload: { gig_id: fixture.gig.gig_id },
+      }),
     });
     expect(replacementClaim.status).toBe(200);
   });
@@ -192,15 +241,35 @@ describe('gig lifecycle in workerd', () => {
     buyer.close(1000, 'network interruption');
     await new Promise((resolve) => setTimeout(resolve, 20));
 
-    const reconnect = await workerFetch(`http://automata.test/v1/gigs/${fixture.gig.gig_id}/reconnect`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', Authorization: `Bearer ${fixture.buyerGrant.token}` },
-      body: JSON.stringify({ message_id: 'reconnect-buyer', sender: fixture.buyerGrant.agent_identity, role: 'buyer' }),
-    });
+    const reconnect = await workerFetch(
+      `http://automata.test/v1/gigs/${fixture.gig.gig_id}/reconnect`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          Authorization: `Bearer ${fixture.buyerGrant.token}`,
+        },
+        body: JSON.stringify({
+          message_id: 'reconnect-buyer',
+          sender: fixture.buyerGrant.agent_identity,
+          role: 'buyer',
+        }),
+      }
+    );
     expect(reconnect.status).toBe(200);
     const body = (await reconnect.json()) as { tunnel_grant: TunnelGrant };
     expect(body.tunnel_grant.token).not.toBe(fixture.buyerGrant.token);
-    expect((await workerFetch(`http://automata.test/v1/gigs/${fixture.gig.gig_id}/tunnel`, { headers: { Upgrade: 'websocket', Authorization: `Bearer ${fixture.buyerGrant.token}`, 'X-Agent-Identity': fixture.buyerGrant.agent_identity } })).status).toBe(401);
+    expect(
+      (
+        await workerFetch(`http://automata.test/v1/gigs/${fixture.gig.gig_id}/tunnel`, {
+          headers: {
+            Upgrade: 'websocket',
+            Authorization: `Bearer ${fixture.buyerGrant.token}`,
+            'X-Agent-Identity': fixture.buyerGrant.agent_identity,
+          },
+        })
+      ).status
+    ).toBe(401);
     const reconnected = await startGig(fixture.gig.gig_id, body.tunnel_grant);
     reconnected.close(1000, 'done');
   });
@@ -210,9 +279,17 @@ describe('gig lifecycle in workerd', () => {
     const warn = vi.spyOn(console, 'warn');
     const fixture = await createClaimedGig('lifecycle-observability');
     const correlationId = 'corr-observability-reject';
-    const response = await workerFetch(`http://automata.test/v1/gigs/${fixture.gig.gig_id}/tunnel`, {
-      headers: { Upgrade: 'websocket', Authorization: 'Bearer atg_v1_invalid', 'X-Agent-Identity': fixture.buyerGrant.agent_identity, 'X-Correlation-ID': correlationId },
-    });
+    const response = await workerFetch(
+      `http://automata.test/v1/gigs/${fixture.gig.gig_id}/tunnel`,
+      {
+        headers: {
+          Upgrade: 'websocket',
+          Authorization: 'Bearer atg_v1_invalid',
+          'X-Agent-Identity': fixture.buyerGrant.agent_identity,
+          'X-Correlation-ID': correlationId,
+        },
+      }
+    );
     expect(response.status).toBe(401);
     expect(response.headers.get('X-Correlation-ID')).toBe(correlationId);
     const telemetry = [...info.mock.calls, ...warn.mock.calls].flat().join('\n');

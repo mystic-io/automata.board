@@ -25,14 +25,24 @@ export async function handleClaimGig(c: AppContext): Promise<Response> {
 
   try {
     const gig = await env.DB.prepare(
-      `SELECT buyer_pubkey, expires_at
+      `SELECT buyer_pubkey, worker_pubkey, status, expires_at
        FROM agent_gigs
-       WHERE gig_id = ? AND status = 'ACTIVE' AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
+       WHERE gig_id = ? AND status IN ('ACTIVE', 'IN_PROGRESS')
+         AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
     )
       .bind(payload.payload.gig_id)
-      .first<{ buyer_pubkey: string; expires_at: string }>();
+      .first<{
+        buyer_pubkey: string;
+        worker_pubkey: string | null;
+        status: string;
+        expires_at: string;
+      }>();
 
-    if (!gig || gig.buyer_pubkey === payload.sender) {
+    if (
+      !gig ||
+      gig.buyer_pubkey === payload.sender ||
+      (gig.status === 'IN_PROGRESS' && gig.worker_pubkey !== payload.sender)
+    ) {
       return errorResponse('Gig not found, already claimed, expired, or self-claimed', 404);
     }
 
