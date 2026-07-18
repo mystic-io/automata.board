@@ -11,7 +11,10 @@ CREATE TABLE IF NOT EXISTS agent_gigs (
     payload_json  TEXT NOT NULL,
     bounty_sats   INTEGER NOT NULL,
     status        TEXT NOT NULL CHECK(status IN ('PENDING_PAYMENT', 'ACTIVE', 'IN_PROGRESS', 'COMPLETED', 'EXPIRED')),
+    lifecycle_state TEXT NOT NULL DEFAULT 'POSTED',
+    lifecycle_version INTEGER NOT NULL DEFAULT 0,
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at    TIMESTAMP NOT NULL
 );
 

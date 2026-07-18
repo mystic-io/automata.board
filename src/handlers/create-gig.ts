@@ -12,16 +12,16 @@
  * 3. Insert into D1 with status = 'ACTIVE', return 201
  */
 
-import type { Env, GigRecord } from '../types';
+import type { AppContext, GigRecord } from '../types';
 import { validateCreateGigPayload, jsonResponse, errorResponse } from '../utils/validation';
-import type { Context } from 'hono';
 import { createTunnelGrant, hashTunnelGrant } from '../services/tunnel-grants';
 
 /**
  * Handles POST /v1/gigs/create
  */
-export async function handleCreateGig(c: Context<{ Bindings: Env }>): Promise<Response> {
+export async function handleCreateGig(c: AppContext): Promise<Response> {
   const env = c.env;
+  const correlationId = c.get('correlationId');
 
   // -----------------------------------------------------------------------
   // Step 1: Parse & Validate
@@ -66,14 +66,17 @@ export async function handleCreateGig(c: Context<{ Bindings: Env }>): Promise<Re
     payload_json: JSON.stringify(payload.payload.task_params),
     bounty_sats: payload.payload.bounty_sats,
     status: 'ACTIVE',
+    lifecycle_state: 'POSTED',
+    lifecycle_version: 0,
     created_at: now.toISOString(),
+    updated_at: now.toISOString(),
     expires_at: expiresAt.toISOString(),
   };
 
   try {
     await env.DB.prepare(
-      `INSERT INTO agent_gigs (gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO agent_gigs (gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, lifecycle_state, lifecycle_version, created_at, updated_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
       .bind(
         gigRecord.gig_id,
@@ -84,7 +87,10 @@ export async function handleCreateGig(c: Context<{ Bindings: Env }>): Promise<Re
         gigRecord.payload_json,
         gigRecord.bounty_sats,
         gigRecord.status,
+        gigRecord.lifecycle_state,
+        gigRecord.lifecycle_version,
         gigRecord.created_at,
+        gigRecord.updated_at,
         gigRecord.expires_at
       )
       .run();
@@ -95,11 +101,20 @@ export async function handleCreateGig(c: Context<{ Bindings: Env }>): Promise<Re
       buyer_identity: payload.sender,
       buyer_grant_hash: buyerGrantHash,
       expires_at: expiresAt.toISOString(),
+      correlation_id: correlationId,
     });
+    await tunnel.publishGig({
+      message_id: `publish:${payload.message_id}`,
+      actor_identity: payload.sender,
+      correlation_id: correlationId,
+    });
+    gigRecord.lifecycle_state = 'DISCOVERABLE';
+    gigRecord.lifecycle_version = 1;
+    c.set('createdGigId', gigId);
   } catch (err) {
     console.error('Gig creation or tunnel preparation error:', err);
     try {
-      await env.TUNNEL.getByName(gigId).revokeTunnelSession('gig creation failed');
+      await env.TUNNEL.getByName(gigId).revokeTunnelSession('gig creation failed', correlationId);
       await env.DB.prepare('DELETE FROM agent_gigs WHERE gig_id = ?').bind(gigId).run();
     } catch (cleanupError) {
       console.error('Failed to clean up partially created gig:', cleanupError);

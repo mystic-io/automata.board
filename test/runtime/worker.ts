@@ -52,6 +52,16 @@ class SimulatedFacilitator implements FacilitatorClient {
     paymentRequirements: PaymentRequirements
   ): Promise<SettleResponse> {
     const nonce = paymentPayload.payload.nonce;
+    if (nonce === 'settlement-failure') {
+      return {
+        success: false,
+        errorReason: 'simulated_settlement_failure',
+        errorMessage: 'Deterministic runtime settlement failure',
+        transaction: '',
+        network: PAYMENT_NETWORK,
+        amount: paymentRequirements.amount,
+      };
+    }
     return {
       success: true,
       payer: TEST_PAYER,

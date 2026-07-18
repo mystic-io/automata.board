@@ -26,6 +26,16 @@ export interface Env {
   ENVIRONMENT: string;
 }
 
+export interface RequestContextVariables {
+  correlationId: string;
+  createdGigId?: string;
+}
+
+export type AppContext = import('hono').Context<{
+  Bindings: Env;
+  Variables: RequestContextVariables;
+}>;
+
 // ---------------------------------------------------------------------------
 // API Payloads
 // ---------------------------------------------------------------------------
@@ -55,11 +65,34 @@ export interface ClaimGigPayload {
   };
 }
 
+export interface LifecycleActionPayload {
+  message_id: string;
+  sender: string;
+  type: 'TaskDelivery' | 'TaskAcceptance' | 'TaskCancellation' | 'TaskAbandonment';
+  payload: {
+    gig_id: string;
+    reason?: string;
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Database Records
 // ---------------------------------------------------------------------------
 
 export type GigStatus = 'PENDING_PAYMENT' | 'ACTIVE' | 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED';
+
+export type GigLifecycleState =
+  | 'POSTED'
+  | 'DISCOVERABLE'
+  | 'CLAIMED'
+  | 'TUNNEL_GRANTED'
+  | 'IN_PROGRESS'
+  | 'DELIVERED'
+  | 'COMPLETED'
+  | 'CLOSED'
+  | 'CANCELLED'
+  | 'EXPIRED'
+  | 'FAILED';
 
 /** Row shape from the `agent_gigs` D1 table */
 export interface GigRecord {
@@ -72,7 +105,10 @@ export interface GigRecord {
   payload_json: string;
   bounty_sats: number;
   status: GigStatus;
+  lifecycle_state: GigLifecycleState;
+  lifecycle_version: number;
   created_at: string;
+  updated_at: string;
   expires_at: string;
 }
 
@@ -95,12 +131,28 @@ export interface PrepareTunnelSession {
   buyer_identity: string;
   buyer_grant_hash: string;
   expires_at: string;
+  correlation_id: string;
 }
 
 export interface ActivateTunnelSession {
   gig_id: string;
   worker_identity: string;
   worker_grant_hash: string;
+  message_id: string;
+  correlation_id: string;
+}
+
+export interface LifecycleCommand {
+  message_id: string;
+  actor_identity: string;
+  correlation_id: string;
+  reason?: string;
+}
+
+export interface ReconnectTunnelSession extends LifecycleCommand {
+  role: TunnelRole;
+  current_grant_hash: string;
+  replacement_grant_hash: string;
 }
 
 export interface TunnelParticipantState {
@@ -117,4 +169,19 @@ export interface TunnelSessionState {
   activated_at?: string;
   revoked_at?: string;
   revocation_reason?: string;
+  lifecycle_state: GigLifecycleState;
+  lifecycle_version: number;
+  lifecycle_updated_at: string;
+  claim_expires_at?: string;
+  projection_pending?: boolean;
+  processed_operations: Record<string, GigLifecycleState>;
+}
+
+export interface LifecycleResult {
+  gig_id: string;
+  lifecycle_state: GigLifecycleState;
+  lifecycle_version: number;
+  duplicate: boolean;
+  accepted?: boolean;
+  rejection_reason?: string;
 }

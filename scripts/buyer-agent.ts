@@ -149,17 +149,17 @@ async function main() {
       );
     });
 
-    ws.on('message', (msg) => {
-      const data = JSON.parse(msg.toString());
+    ws.on('message', async (msg) => {
+      const message = JSON.parse(msg.toString());
 
       // Silently ignore pong responses to our pings
-      if (data.type === 'pong') return;
+      if (message.type === 'pong') return;
 
-      console.log(`\\n📥 Received message from ${data.sender || 'Unknown'}:`);
-      console.log(JSON.stringify(data, null, 2));
+      console.log(`\\n📥 Received message from ${message.sender || 'Unknown'}:`);
+      console.log(JSON.stringify(message, null, 2));
 
       // Simple orchestration logic
-      if (data.type === 'identify' && data.payload.role === 'worker') {
+      if (message.type === 'identify' && message.payload.role === 'worker') {
         console.log('🤝 Worker joined! Sending instructions...');
         ws.send(
           JSON.stringify({
@@ -173,9 +173,23 @@ async function main() {
             },
           })
         );
-      } else if (data.type === 'task_completed') {
+      } else if (message.type === 'task_completed') {
         console.log('🎉 Worker completed the task!');
-        console.log('Results:', data.payload.results);
+        console.log('Results:', message.payload.results);
+        const acceptance = await fetch(`${API_URL}/v1/gigs/${gigId}/lifecycle`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${data.tunnel_grant.token}`,
+          },
+          body: JSON.stringify({
+            message_id: crypto.randomUUID(),
+            sender: account.address,
+            type: 'TaskAcceptance',
+            payload: { gig_id: gigId },
+          }),
+        });
+        if (!acceptance.ok) throw new Error(`Failed to accept delivery: ${acceptance.status}`);
         console.log('Closing connection.');
         ws.close();
         process.exit(0);
@@ -185,7 +199,7 @@ async function main() {
     ws.on('unexpected-response', (_request, upgradeResponse) => {
       upgradeResponse.resume();
       if (
-        upgradeResponse.statusCode === 404 &&
+        (upgradeResponse.statusCode === 401 || upgradeResponse.statusCode === 404) &&
         Date.now() < Date.parse(data.tunnel_grant.expires_at)
       ) {
         console.log('⏳ Tunnel is waiting for a worker claim; retrying in 1 second...');

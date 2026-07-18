@@ -2,13 +2,13 @@
  * Automata MVP — Claim Gig Handler
  */
 
-import type { Context } from 'hono';
-import type { Env } from '../types';
+import type { AppContext } from '../types';
 import { validateClaimGigPayload, errorResponse, jsonResponse } from '../utils/validation';
 import { createTunnelGrant, hashTunnelGrant } from '../services/tunnel-grants';
 
-export async function handleClaimGig(c: Context<{ Bindings: Env }>): Promise<Response> {
+export async function handleClaimGig(c: AppContext): Promise<Response> {
   const env = c.env;
+  const correlationId = c.get('correlationId');
 
   let body: unknown;
   try {
@@ -25,58 +25,47 @@ export async function handleClaimGig(c: Context<{ Bindings: Env }>): Promise<Res
 
   try {
     const gig = await env.DB.prepare(
-      `SELECT buyer_pubkey, expires_at
+      `SELECT buyer_pubkey, worker_pubkey, status, expires_at
        FROM agent_gigs
-       WHERE gig_id = ? AND status = 'ACTIVE' AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
+       WHERE gig_id = ? AND status IN ('ACTIVE', 'IN_PROGRESS')
+         AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
     )
       .bind(payload.payload.gig_id)
-      .first<{ buyer_pubkey: string; expires_at: string }>();
+      .first<{
+        buyer_pubkey: string;
+        worker_pubkey: string | null;
+        status: string;
+        expires_at: string;
+      }>();
 
-    if (!gig || gig.buyer_pubkey === payload.sender) {
+    if (
+      !gig ||
+      gig.buyer_pubkey === payload.sender ||
+      (gig.status === 'IN_PROGRESS' && gig.worker_pubkey !== payload.sender)
+    ) {
       return errorResponse('Gig not found, already claimed, expired, or self-claimed', 404);
     }
 
     const workerGrant = createTunnelGrant('worker', payload.sender, gig.expires_at);
     const workerGrantHash = await hashTunnelGrant(workerGrant.token);
 
-    // Attempt to claim the gig atomically.
-    // It must exist, be ACTIVE, and not be expired.
-    const result = await env.DB.prepare(
-      `UPDATE agent_gigs
-       SET status = 'IN_PROGRESS', worker_pubkey = ?
-       WHERE gig_id = ? AND status = 'ACTIVE'
-         AND buyer_pubkey <> ?
-         AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
-    )
-      .bind(payload.sender, payload.payload.gig_id, payload.sender)
-      .run();
-
-    if (!result.success || result.meta.changes === 0) {
-      return errorResponse('Gig not found, already claimed, or expired', 404);
-    }
-
     try {
-      await env.TUNNEL.getByName(payload.payload.gig_id).activateTunnelSession({
+      const activation = await env.TUNNEL.getByName(payload.payload.gig_id).activateTunnelSession({
         gig_id: payload.payload.gig_id,
         worker_identity: payload.sender,
         worker_grant_hash: workerGrantHash,
+        message_id: payload.message_id,
+        correlation_id: correlationId,
       });
+      if (activation.accepted === false) {
+        return errorResponse('Gig not found, already claimed, or expired', 404);
+      }
     } catch (activationError) {
       console.error('Tunnel activation error:', activationError);
-      try {
-        await env.TUNNEL.getByName(payload.payload.gig_id).revokeTunnelSession(
-          'claim activation failed'
-        );
-      } catch (revocationError) {
-        console.error('Failed to revoke tunnel after activation error:', revocationError);
+      const message = activationError instanceof Error ? activationError.message : '';
+      if (message.includes('not claimable') || message.includes('another worker')) {
+        return errorResponse('Gig not found, already claimed, or expired', 404);
       }
-      await env.DB.prepare(
-        `UPDATE agent_gigs
-         SET status = 'EXPIRED'
-         WHERE gig_id = ? AND status = 'IN_PROGRESS' AND worker_pubkey = ?`
-      )
-        .bind(payload.payload.gig_id, payload.sender)
-        .run();
       return errorResponse('Failed to activate authenticated tunnel', 500);
     }
 

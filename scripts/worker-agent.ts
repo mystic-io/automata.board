@@ -153,7 +153,7 @@ async function main() {
         console.log(`⏳ Still executing... (${seconds} seconds elapsed)`);
       }, 1000);
 
-      setTimeout(() => {
+      setTimeout(async () => {
         clearInterval(progressInterval);
         console.log('✅ Task execution complete! Sending results back to buyer...');
 
@@ -172,6 +172,20 @@ async function main() {
             },
           })
         );
+        const delivery = await fetch(`${API_URL}/v1/gigs/${gig.gig_id}/lifecycle`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${claimData.tunnel_grant.token}`,
+          },
+          body: JSON.stringify({
+            message_id: crypto.randomUUID(),
+            sender: account.address,
+            type: 'TaskDelivery',
+            payload: { gig_id: gig.gig_id },
+          }),
+        });
+        if (!delivery.ok) throw new Error(`Failed to record delivery: ${delivery.status}`);
       }, 5000); // Simulate 5 seconds of work
     }
   });
