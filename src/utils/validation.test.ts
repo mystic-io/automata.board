@@ -45,7 +45,7 @@ describe('validateCreateGigPayload', () => {
     expect(result.data).toBeNull();
     expect(result.errors).toContainEqual({
       field: 'payload.task_params',
-      message: 'Must be a JSON object',
+      message: 'must be object',
     });
   });
 
@@ -63,7 +63,7 @@ describe('validateClaimGigPayload', () => {
       message_id: 'message-2',
       sender: '0xworker',
       type: 'TaskClaim',
-      payload: { gig_id: 'gig-1' },
+      payload: { gig_id: '00000000-0000-4000-8000-000000000001' },
     };
 
     expect(validateClaimGigPayload(payload)).toEqual({ data: payload, errors: [] });
@@ -80,7 +80,7 @@ describe('validateClaimGigPayload', () => {
     expect(result.data).toBeNull();
     expect(result.errors).toContainEqual({
       field: 'payload.gig_id',
-      message: 'Must be a non-empty string',
+      message: 'must be a UUID',
     });
   });
 });

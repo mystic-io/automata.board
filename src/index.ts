@@ -8,12 +8,14 @@
 import { Hono } from 'hono';
 import type { MiddlewareHandler } from 'hono';
 import { cors } from 'hono/cors';
-import type { Env, GigRecord, RequestContextVariables } from './types';
+import type { Env, RequestContextVariables } from './types';
 import { handleCreateGig } from './handlers/create-gig';
 import { handleClaimGig } from './handlers/claim-gig';
 import { handleAgentDocs } from './handlers/docs';
 import { handleOpenAPI } from './handlers/openapi';
 import { handleTunnelConnect } from './handlers/tunnel';
+import { handleDiscoverGigs } from './handlers/discover-gigs';
+import { handleMcp } from './handlers/mcp';
 import {
   handleLifecycleAction,
   handleLifecycleStatus,
@@ -21,8 +23,6 @@ import {
 } from './handlers/lifecycle';
 import { jsonResponse, errorResponse } from './utils/validation';
 import { PAYMENT_NETWORK, PAYMENT_NETWORK_NAME, PAYMENT_PRICE } from './config';
-import { createMcpHandler } from 'agents/mcp';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
   createProductionPaymentMiddleware,
   PaymentConfigurationError,
@@ -30,6 +30,7 @@ import {
 } from './services/x402';
 import { logEvent, resolveCorrelationId, safeErrorName } from './services/observability';
 import { runScheduledReconciliation } from './services/reconciliation';
+import { A2A_PROTOCOL_VERSION, CONTRACT_VERSION } from './contracts';
 
 type AutomataApp = Hono<{ Bindings: Env; Variables: RequestContextVariables }>;
 
@@ -85,7 +86,10 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
   app.use('/v1/gigs/create', async (c, next) => {
     const hasPayment = Boolean(c.req.header('PAYMENT-SIGNATURE') || c.req.header('X-PAYMENT'));
     try {
-      const middleware: MiddlewareHandler = await dependencies.createPaymentMiddleware(c.env);
+      const middleware: MiddlewareHandler = await dependencies.createPaymentMiddleware(
+        c.env,
+        c.get('correlationId')
+      );
       const response = await middleware(c, next);
       const status = response?.status ?? c.res.status;
       const createdGigId = c.get('createdGigId');
@@ -111,12 +115,21 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
         });
         return errorResponse('Payment configuration error', 500);
       }
+      const createdGigId = c.get('createdGigId');
+      if (createdGigId) {
+        await c.env.TUNNEL.getByName(createdGigId).revokeTunnelSession(
+          'x402 facilitator unavailable after gig creation',
+          c.get('correlationId')
+        );
+      }
       logEvent('error', 'x402.verification_outcome', {
         correlation_id: c.get('correlationId'),
-        outcome: 'error',
+        gig_id: createdGigId,
+        outcome: 'facilitator_unavailable',
         error_name: safeErrorName(error),
+        status: 503,
       });
-      throw error;
+      return errorResponse('Payment facilitator unavailable', 503);
     }
   });
 
@@ -143,70 +156,13 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
   app.get('/v1/gigs/:id/tunnel', handleTunnelConnect);
 
   // List active gigs (public)
-  app.get('/v1/gigs/discover', async (c) => {
-    const env = c.env;
-    try {
-      const result = await env.DB.prepare(
-        `SELECT gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, lifecycle_state, lifecycle_version, created_at, updated_at, expires_at
-       FROM agent_gigs
-       WHERE status = 'ACTIVE' AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-       ORDER BY expires_at DESC
-       LIMIT 100`
-      ).all<GigRecord>();
-
-      return jsonResponse({
-        count: result.results.length,
-        gigs: result.results,
-      });
-    } catch (err) {
-      console.error('D1 query error:', err);
-      return errorResponse('Failed to fetch active gigs', 500);
-    }
-  });
+  app.get('/v1/gigs/discover', handleDiscoverGigs);
 
   // ---------------------------------------------------------------------------
   // MCP Server
   // ---------------------------------------------------------------------------
 
-  app.all('/mcp/*', async (c) => {
-    const server = new McpServer({
-      name: 'automata-mcp',
-      version: '0.1.0',
-    });
-
-    server.registerTool(
-      'get_active_gigs',
-      {
-        description: 'Get a list of currently active agent gigs on the Automata network.',
-      },
-      async () => {
-        try {
-          const result = await c.env.DB.prepare(
-            `SELECT gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, lifecycle_state, lifecycle_version, created_at, updated_at, expires_at
-           FROM agent_gigs
-           WHERE status = 'ACTIVE' AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-           ORDER BY expires_at DESC
-           LIMIT 100`
-          ).all<GigRecord>();
-
-          return {
-            content: [{ type: 'text', text: JSON.stringify(result.results, null, 2) }],
-          };
-        } catch (err) {
-          console.error('MCP Tool Error (get_active_gigs):', err);
-          return {
-            content: [{ type: 'text', text: JSON.stringify({ error: 'Failed to fetch gigs' }) }],
-            isError: true,
-          };
-        }
-      }
-    );
-
-    const handler = createMcpHandler(server, { route: '/mcp' });
-    // Hono's local ExecutionContext interface omits newer Workers fields such
-    // as tracing, but the runtime object is the platform ExecutionContext.
-    return handler(c.req.raw, c.env, c.executionCtx as ExecutionContext);
-  });
+  app.all('/mcp/*', handleMcp);
 
   // Health checks
   const healthCheck = async (c: Parameters<typeof handleLifecycleStatus>[0]) => {
@@ -214,9 +170,14 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
       await c.env.DB.prepare('SELECT 1 AS ready').first<{ ready: number }>();
       return jsonResponse({
         service: 'automata',
-        version: '0.1.0',
+        version: CONTRACT_VERSION,
         status: 'ready',
-        checks: { d1: 'ready', lifecycle_coordinator: 'configured', observability: 'enabled' },
+        checks: {
+          d1: 'ready',
+          lifecycle_coordinator: 'configured',
+          facilitator: c.env.FACILITATOR_MODE,
+          observability: 'enabled',
+        },
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
@@ -237,7 +198,7 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
     }
   };
 
-  app.get('/', async (c) => {
+  const agentCard = async (c: Parameters<typeof handleLifecycleStatus>[0]) => {
     const acceptHeader = c.req.header('accept') || '';
 
     if (acceptHeader.includes('text/markdown')) {
@@ -259,10 +220,33 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
     }
 
     return jsonResponse({
-      role: 'registry',
       name: 'Automata Agentic Gig Board',
-      description: 'Decentralized gig board for autonomous AI agents.',
-      api_version: '0.1.0',
+      description: 'Testnet-only gig board and lifecycle coordinator for autonomous agents.',
+      supportedInterfaces: [
+        {
+          url: 'https://automata.board/v1',
+          protocolBinding: 'HTTP+JSON',
+          protocolVersion: A2A_PROTOCOL_VERSION,
+        },
+      ],
+      version: CONTRACT_VERSION,
+      documentationUrl: 'https://automata.board/.well-known/llms.txt',
+      capabilities: { streaming: true, pushNotifications: false },
+      defaultInputModes: ['application/json'],
+      defaultOutputModes: ['application/json'],
+      skills: [
+        {
+          id: 'automata-gig-lifecycle',
+          name: 'Automata gig lifecycle',
+          description: 'Create, discover, claim, coordinate, and complete testnet agent gigs.',
+          tags: ['gig-board', 'x402', 'mcp', 'a2a', 'testnet'],
+          inputModes: ['application/json'],
+          outputModes: ['application/json'],
+        },
+      ],
+      // Additive legacy discovery fields retained for pre-Milestone-5 clients.
+      role: 'registry',
+      api_version: CONTRACT_VERSION,
       protocols: {
         identity: 'agent-agnostic pubkey',
         payments: 'x402',
@@ -292,7 +276,10 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
       disclaimer:
         'Automata solely facilitates the introduction and connection between agents. Payment terms, task verification, and final delivery must be negotiated and settled directly between the buyer and worker agents over the real-time tunnel.',
     });
-  });
+  };
+
+  app.get('/', agentCard);
+  app.get('/.well-known/agent-card.json', agentCard);
 
   app.get('/health', healthCheck);
 

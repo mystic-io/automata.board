@@ -96,4 +96,46 @@ describe('x402 payment verification in workerd', () => {
     }>();
     expect(row).toMatchObject({ status: 'EXPIRED', lifecycle_state: 'FAILED' });
   });
+
+  it.each([{ nonce: 'verify-unavailable' }, { nonce: 'verify-timeout' }])(
+    'fails closed before creation when verify cannot complete: $nonce',
+    async ({ nonce }) => {
+      const accepted = await getPaymentRequirements(VALID_CREATE_PAYLOAD);
+      const response = await workerFetch('http://automata.test/v1/gigs/create', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'PAYMENT-SIGNATURE': encodePaymentSignature(accepted, { nonce }),
+        },
+        body: JSON.stringify(VALID_CREATE_PAYLOAD),
+      });
+      expect(response.status).toBe(402);
+      const row = await env.DB.prepare('SELECT COUNT(*) AS count FROM agent_gigs').first<{
+        count: number;
+      }>();
+      expect(row?.count).toBe(0);
+    }
+  );
+
+  it.each([
+    { nonce: 'settle-unavailable' },
+    { nonce: 'settle-timeout' },
+    { nonce: 'settlement-pending' },
+  ])('closes lifecycle when settlement is not final: $nonce', async ({ nonce }) => {
+    const accepted = await getPaymentRequirements(VALID_CREATE_PAYLOAD);
+    const response = await workerFetch('http://automata.test/v1/gigs/create', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'PAYMENT-SIGNATURE': encodePaymentSignature(accepted, { nonce }),
+      },
+      body: JSON.stringify(VALID_CREATE_PAYLOAD),
+    });
+    expect(response.status).toBe(402);
+    const row = await env.DB.prepare('SELECT status, lifecycle_state FROM agent_gigs').first<{
+      status: string;
+      lifecycle_state: string;
+    }>();
+    expect(row).toMatchObject({ status: 'EXPIRED', lifecycle_state: 'FAILED' });
+  });
 });

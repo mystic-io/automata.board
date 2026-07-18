@@ -5,25 +5,21 @@
  * JSON response construction.
  */
 
-import type { CreateGigPayload, ClaimGigPayload } from '../types';
+import type { CreateGigPayload, ClaimGigPayload, LifecycleActionPayload } from '../types';
+import {
+  A2A_AUTOMATA_MESSAGE_SCHEMA,
+  CLAIM_GIG_PAYLOAD_SCHEMA,
+  CREATE_GIG_PAYLOAD_SCHEMA,
+  LIFECYCLE_ACTION_PAYLOAD_SCHEMA,
+  RECONNECT_PAYLOAD_SCHEMA,
+  validateContract,
+} from '../contracts';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const ALLOWED_TASK_TYPES = new Set([
-  'web_scrape',
-  'data_extraction',
-  'computation',
-  'api_relay',
-  'custom',
-]);
-
 const MAX_PAYLOAD_SIZE = 10_000; // 10 KB max for payload_json
-const MAX_TTL_MINUTES = 120; // 2 hours (matches PRD ephemerality)
-const MIN_TTL_MINUTES = 1;
-const MAX_BOUNTY_SATS = 1_000_000; // 1M sats cap
-const MIN_BOUNTY_SATS = 1;
 export const MAX_AGENT_IDENTITY_LENGTH = 512;
 
 // ---------------------------------------------------------------------------
@@ -39,6 +35,30 @@ function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function normalizeA2AEnvelope(body: unknown): unknown {
+  if (!isJsonObject(body) || !('messageId' in body)) return body;
+  if (validateContract(A2A_AUTOMATA_MESSAGE_SCHEMA, body).length > 0) return body;
+  const firstPart = Array.isArray(body.parts) ? body.parts[0] : undefined;
+  if (!isJsonObject(firstPart) || !isJsonObject(firstPart.data)) return body;
+  const data = firstPart.data;
+  return {
+    message_id: body.messageId,
+    sender: data.sender,
+    type: data.type,
+    payload: data.payload,
+  };
+}
+
+function contractErrors(
+  schema: Readonly<Record<string, unknown>>,
+  body: unknown
+): ValidationError[] {
+  return validateContract(schema, body).map(({ path, message }) => ({
+    field: path === '$' ? 'body' : path.replace(/^\$\./, ''),
+    message,
+  }));
+}
+
 /**
  * Validates the raw parsed body against the CreateGigPayload schema.
  * Returns an array of validation errors (empty = valid).
@@ -46,106 +66,21 @@ function isJsonObject(value: unknown): value is Record<string, unknown> {
 export function validateCreateGigPayload(
   body: unknown
 ): { data: CreateGigPayload; errors: never[] } | { data: null; errors: ValidationError[] } {
-  const errors: ValidationError[] = [];
-
-  if (!isJsonObject(body)) {
-    return {
-      data: null,
-      errors: [{ field: 'body', message: 'Request body must be a JSON object' }],
-    };
+  const normalized = normalizeA2AEnvelope(body);
+  const errors = contractErrors(CREATE_GIG_PAYLOAD_SCHEMA, normalized);
+  const obj = isJsonObject(normalized) ? normalized : {};
+  const payload = isJsonObject(obj.payload) ? obj.payload : {};
+  if (typeof obj.sender === 'string' && obj.sender !== obj.sender.trim()) {
+    errors.push({ field: 'sender', message: 'Must be trimmed' });
   }
-
-  const obj = body;
-
-  if (typeof obj.message_id !== 'string' || obj.message_id.trim().length === 0) {
-    errors.push({ field: 'message_id', message: 'Must be a non-empty string' });
-  }
-
   if (
-    typeof obj.sender !== 'string' ||
-    obj.sender.trim().length === 0 ||
-    obj.sender !== obj.sender.trim() ||
-    obj.sender.length > MAX_AGENT_IDENTITY_LENGTH
+    isJsonObject(payload.task_params) &&
+    JSON.stringify(payload.task_params).length > MAX_PAYLOAD_SIZE
   ) {
     errors.push({
-      field: 'sender',
-      message: `Must be a trimmed string between 1 and ${MAX_AGENT_IDENTITY_LENGTH} characters`,
+      field: 'payload.task_params',
+      message: `Serialized params must not exceed ${MAX_PAYLOAD_SIZE} characters`,
     });
-  }
-
-  if (obj.type !== 'TaskDelegation') {
-    errors.push({ field: 'type', message: 'Must be exactly "TaskDelegation"' });
-  }
-
-  if (!isJsonObject(obj.payload)) {
-    errors.push({ field: 'payload', message: 'Must be a JSON object' });
-  } else {
-    const payload = obj.payload;
-
-    if (
-      typeof payload.title !== 'string' ||
-      payload.title.trim().length === 0 ||
-      payload.title.length > 80
-    ) {
-      errors.push({
-        field: 'payload.title',
-        message: 'Must be a string between 1 and 80 characters',
-      });
-    }
-
-    if (
-      typeof payload.description !== 'string' ||
-      payload.description.trim().length === 0 ||
-      payload.description.length > 500
-    ) {
-      errors.push({
-        field: 'payload.description',
-        message: 'Must be a string between 1 and 500 characters',
-      });
-    }
-
-    if (typeof payload.task_type !== 'string' || !ALLOWED_TASK_TYPES.has(payload.task_type)) {
-      errors.push({
-        field: 'payload.task_type',
-        message: `Must be one of: ${[...ALLOWED_TASK_TYPES].join(', ')}`,
-      });
-    }
-
-    if (!isJsonObject(payload.task_params)) {
-      errors.push({ field: 'payload.task_params', message: 'Must be a JSON object' });
-    } else {
-      const taskParamsStr = JSON.stringify(payload.task_params);
-      if (taskParamsStr.length > MAX_PAYLOAD_SIZE) {
-        errors.push({
-          field: 'payload.task_params',
-          message: `Serialized params must not exceed ${MAX_PAYLOAD_SIZE} characters`,
-        });
-      }
-    }
-
-    if (
-      typeof payload.bounty_sats !== 'number' ||
-      !Number.isInteger(payload.bounty_sats) ||
-      payload.bounty_sats < MIN_BOUNTY_SATS ||
-      payload.bounty_sats > MAX_BOUNTY_SATS
-    ) {
-      errors.push({
-        field: 'payload.bounty_sats',
-        message: `Must be an integer between ${MIN_BOUNTY_SATS} and ${MAX_BOUNTY_SATS}`,
-      });
-    }
-
-    if (
-      typeof payload.ttl_minutes !== 'number' ||
-      !Number.isInteger(payload.ttl_minutes) ||
-      payload.ttl_minutes < MIN_TTL_MINUTES ||
-      payload.ttl_minutes > MAX_TTL_MINUTES
-    ) {
-      errors.push({
-        field: 'payload.ttl_minutes',
-        message: `Must be an integer between ${MIN_TTL_MINUTES} and ${MAX_TTL_MINUTES}`,
-      });
-    }
   }
 
   if (errors.length > 0) {
@@ -158,15 +93,12 @@ export function validateCreateGigPayload(
       sender: obj.sender as string,
       type: 'TaskDelegation',
       payload: {
-        title: (obj.payload as Record<string, unknown>).title as string,
-        description: (obj.payload as Record<string, unknown>).description as string,
-        task_type: (obj.payload as Record<string, unknown>).task_type as string,
-        task_params: (obj.payload as Record<string, unknown>).task_params as Record<
-          string,
-          unknown
-        >,
-        bounty_sats: (obj.payload as Record<string, unknown>).bounty_sats as number,
-        ttl_minutes: (obj.payload as Record<string, unknown>).ttl_minutes as number,
+        title: payload.title as string,
+        description: payload.description as string,
+        task_type: payload.task_type as string,
+        task_params: payload.task_params as Record<string, unknown>,
+        bounty_sats: payload.bounty_sats as number,
+        ttl_minutes: payload.ttl_minutes as number,
       },
     },
     errors: [] as never[],
@@ -179,44 +111,12 @@ export function validateCreateGigPayload(
 export function validateClaimGigPayload(
   body: unknown
 ): { data: ClaimGigPayload; errors: never[] } | { data: null; errors: ValidationError[] } {
-  const errors: ValidationError[] = [];
-
-  if (!isJsonObject(body)) {
-    return {
-      data: null,
-      errors: [{ field: 'body', message: 'Request body must be a JSON object' }],
-    };
-  }
-
-  const obj = body;
-
-  if (typeof obj.message_id !== 'string' || obj.message_id.trim().length === 0) {
-    errors.push({ field: 'message_id', message: 'Must be a non-empty string' });
-  }
-
-  if (
-    typeof obj.sender !== 'string' ||
-    obj.sender.trim().length === 0 ||
-    obj.sender !== obj.sender.trim() ||
-    obj.sender.length > MAX_AGENT_IDENTITY_LENGTH
-  ) {
-    errors.push({
-      field: 'sender',
-      message: `Must be a trimmed string between 1 and ${MAX_AGENT_IDENTITY_LENGTH} characters`,
-    });
-  }
-
-  if (obj.type !== 'TaskClaim') {
-    errors.push({ field: 'type', message: 'Must be exactly "TaskClaim"' });
-  }
-
-  if (!isJsonObject(obj.payload)) {
-    errors.push({ field: 'payload', message: 'Must be a JSON object' });
-  } else {
-    const payload = obj.payload;
-    if (typeof payload.gig_id !== 'string' || payload.gig_id.trim().length === 0) {
-      errors.push({ field: 'payload.gig_id', message: 'Must be a non-empty string' });
-    }
+  const normalized = normalizeA2AEnvelope(body);
+  const errors = contractErrors(CLAIM_GIG_PAYLOAD_SCHEMA, normalized);
+  const obj = isJsonObject(normalized) ? normalized : {};
+  const payload = isJsonObject(obj.payload) ? obj.payload : {};
+  if (typeof obj.sender === 'string' && obj.sender !== obj.sender.trim()) {
+    errors.push({ field: 'sender', message: 'Must be trimmed' });
   }
 
   if (errors.length > 0) {
@@ -229,8 +129,55 @@ export function validateClaimGigPayload(
       sender: obj.sender as string,
       type: 'TaskClaim',
       payload: {
-        gig_id: (obj.payload as Record<string, unknown>).gig_id as string,
+        gig_id: payload.gig_id as string,
       },
+    },
+    errors: [] as never[],
+  };
+}
+
+export function validateLifecycleActionPayload(
+  body: unknown,
+  gigId: string
+): { data: LifecycleActionPayload; errors: never[] } | { data: null; errors: ValidationError[] } {
+  const normalized = normalizeA2AEnvelope(body);
+  const errors = contractErrors(LIFECYCLE_ACTION_PAYLOAD_SCHEMA, normalized);
+  const obj = isJsonObject(normalized) ? normalized : {};
+  const payload = isJsonObject(obj.payload) ? obj.payload : {};
+  if (payload.gig_id !== gigId) {
+    errors.push({ field: 'payload.gig_id', message: 'Must match the gig ID in the path' });
+  }
+  if (errors.length > 0) return { data: null, errors };
+  return {
+    data: {
+      message_id: obj.message_id as string,
+      sender: obj.sender as string,
+      type: obj.type as LifecycleActionPayload['type'],
+      payload: {
+        gig_id: payload.gig_id as string,
+        ...(typeof payload.reason === 'string' ? { reason: payload.reason } : {}),
+      },
+    },
+    errors: [] as never[],
+  };
+}
+
+export function validateReconnectPayload(
+  body: unknown
+):
+  | { data: { message_id: string; sender: string; role: 'buyer' | 'worker' }; errors: never[] }
+  | { data: null; errors: ValidationError[] } {
+  const errors = contractErrors(RECONNECT_PAYLOAD_SCHEMA, body);
+  const obj = isJsonObject(body) ? body : {};
+  if (typeof obj.sender === 'string' && obj.sender !== obj.sender.trim()) {
+    errors.push({ field: 'sender', message: 'Must be trimmed' });
+  }
+  if (errors.length > 0) return { data: null, errors };
+  return {
+    data: {
+      message_id: obj.message_id as string,
+      sender: obj.sender as string,
+      role: obj.role as 'buyer' | 'worker',
     },
     errors: [] as never[],
   };
