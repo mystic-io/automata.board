@@ -18,8 +18,8 @@ flowchart LR
 
   A --> A1["✓ Shipped M1: safety foundation"]
   A --> A2["✓ Shipped M2: workerd runtime harness"]
-  A --> A3["M3: authenticated two-party tunnel grants"]
-  A --> A4["Lifecycle + observability"]
+  A --> A3["✓ Shipped M3: authenticated two-party tunnel grants"]
+  A --> A4["M4: lifecycle correctness + observability"]
 
   B --> B1["MCP create/claim/status parity"]
   B --> B2["A2A contract alignment"]
@@ -64,20 +64,32 @@ and lifecycle integration tests exist.
 - [x] **Milestone 2 — workerd runtime harness:** deterministic D1 lifecycle and
       concurrency tests, Durable Object WebSocket coverage, simulated x402
       verification/replay tests, MCP discovery, and CI runtime gates.
+- [x] **Milestone 3 — authenticated two-party tunnel grants:** role- and
+      identity-bound single-use capabilities, Durable Object enforcement,
+      expiry/revocation, and deterministic adversarial runtime coverage.
 
-### Milestone 3 — authenticated two-party tunnel grants
+### Milestone 3 — authenticated two-party tunnel grants (shipped)
 
 Extend the workerd WebSocket suite before changing the public tunnel contract.
 
-- [ ] Define a signed, short-lived grant schema bound to gig ID, role, agent
-      identity, issued-at time, expiry, and a single-use nonce.
-- [ ] Issue distinct buyer and worker grants at the appropriate lifecycle
-      transitions without exposing signing secrets to clients.
-- [ ] Verify signature, expiry, nonce, gig, role, and identity during the
-      WebSocket upgrade.
-- [ ] Enforce exactly one buyer and one worker and reject third peers.
-- [ ] Cover expired, replayed, role-swapped, identity-mismatched, and third-peer
-      attempts in workerd before documenting the contract.
+- [x] Define opaque, high-entropy, short-lived capabilities bound in Durable
+      Object state to gig ID, role, agent identity, expiry, and consumption.
+- [x] Issue distinct buyer and worker grants at the appropriate lifecycle
+      transitions without introducing or exposing a signing secret.
+- [x] Verify capability digest, expiry, gig, role, identity, and single-use state
+      during the WebSocket upgrade.
+- [x] Enforce exactly one buyer and one worker and reject third peers.
+- [x] Cover expired, replayed, role-swapped, identity-mismatched, gig-mismatched,
+      revoked, and third-peer attempts in workerd.
+
+### Milestone 4 — lifecycle correctness and observability
+
+- [ ] Add an authenticated completion transition and revoke tunnel grants when
+      a gig reaches `COMPLETED`.
+- [ ] Propagate authoritative gig deadlines through D1 and Durable Object state,
+      with idempotent expiry and scheduled cleanup.
+- [ ] Add structured lifecycle/security logs and a useful readiness signal.
+- [ ] Align OpenAPI, MCP, Agent Card, `llms.txt`, and the testnet walkthrough.
 
 ### Follow-on trustworthy-slice work
 

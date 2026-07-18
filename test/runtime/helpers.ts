@@ -1,5 +1,6 @@
 import { exports as workerExports } from 'cloudflare:workers';
 import type { PaymentRequired, PaymentRequirements } from '@x402/core/types';
+import type { GigRecord, TunnelGrant } from '../../src/types';
 
 export const VALID_CREATE_PAYLOAD = {
   message_id: 'runtime-message-create',
@@ -69,6 +70,62 @@ export async function postPaidGig(
     },
     body: JSON.stringify(body),
   });
+}
+
+interface CreatedGigResponse {
+  gig: GigRecord;
+  tunnel_grant: TunnelGrant;
+}
+
+interface ClaimedGigResponse {
+  gig_id: string;
+  tunnel_url: string;
+  tunnel_grant: TunnelGrant;
+}
+
+export interface AuthenticatedTunnelFixture {
+  gig: GigRecord;
+  tunnelUrl: string;
+  buyerGrant: TunnelGrant;
+  workerGrant: TunnelGrant;
+}
+
+export async function createClaimedGig(
+  nonce: string,
+  buyerIdentity = '0xbuyer-runtime',
+  workerIdentity = '0xworker-runtime'
+): Promise<AuthenticatedTunnelFixture> {
+  const createResponse = await postPaidGig(nonce, {
+    ...VALID_CREATE_PAYLOAD,
+    message_id: `create-${nonce}`,
+    sender: buyerIdentity,
+  });
+  if (createResponse.status !== 201) {
+    throw new Error(`Expected gig creation to succeed, received ${createResponse.status}`);
+  }
+  const created = (await createResponse.json()) as CreatedGigResponse;
+
+  const claimResponse = await workerFetch('http://automata.test/v1/gigs/claim', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      message_id: `claim-${nonce}`,
+      sender: workerIdentity,
+      type: 'TaskClaim',
+      payload: { gig_id: created.gig.gig_id },
+    }),
+  });
+  if (claimResponse.status !== 200) {
+    throw new Error(`Expected gig claim to succeed, received ${claimResponse.status}`);
+  }
+  const claimed = (await claimResponse.json()) as ClaimedGigResponse;
+
+  return {
+    gig: created.gig,
+    tunnelUrl: claimed.tunnel_url,
+    buyerGrant: created.tunnel_grant,
+    workerGrant: claimed.tunnel_grant,
+  };
 }
 
 export async function seedGig(

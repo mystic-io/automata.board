@@ -1,17 +1,25 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
-import type { GigRecord } from '../../src/types';
+import type { GigRecord, TunnelGrant } from '../../src/types';
 import { postPaidGig, seedGig, workerFetch } from './helpers';
 
 interface CreatedGigResponse {
   gig: GigRecord;
+  tunnel_grant: TunnelGrant;
+}
+
+interface ClaimedGigResponse {
+  tunnel_grant: TunnelGrant;
 }
 
 describe('gig lifecycle in workerd', () => {
   it('posts, discovers, and atomically awards one concurrent claim', async () => {
     const createResponse = await postPaidGig('lifecycle-create');
     expect(createResponse.status).toBe(201);
-    const { gig } = (await createResponse.json()) as CreatedGigResponse;
+    const { gig, tunnel_grant: buyerGrant } = (await createResponse.json()) as CreatedGigResponse;
+    expect(buyerGrant.role).toBe('buyer');
+    expect(buyerGrant.agent_identity).toBe(gig.buyer_pubkey);
+    expect(buyerGrant.expires_at).toBe(gig.expires_at);
 
     const discoverResponse = await workerFetch('http://automata.test/v1/gigs/discover');
     expect(discoverResponse.status).toBe(200);
@@ -33,6 +41,13 @@ describe('gig lifecycle in workerd', () => {
 
     const responses = await Promise.all([claim('0xworker-a'), claim('0xworker-b')]);
     expect(responses.map(({ status }) => status).sort()).toEqual([200, 404]);
+    const successfulClaim = responses.find(({ status }) => status === 200);
+    if (!successfulClaim) {
+      throw new Error('Expected one successful claim response');
+    }
+    const claimed = (await successfulClaim.json()) as ClaimedGigResponse;
+    expect(claimed.tunnel_grant.role).toBe('worker');
+    expect(['0xworker-a', '0xworker-b']).toContain(claimed.tunnel_grant.agent_identity);
 
     const row = await env.DB.prepare(
       'SELECT status, worker_pubkey FROM agent_gigs WHERE gig_id = ?'

@@ -34,4 +34,8 @@ worker-startup.cpuprofile
 *.log
 npm-debug.log*
 
-docs/
+# Keep internal docs ignored except the milestone source-of-truth files.
+docs/*
+!docs/CURRENT_STATE.md
+!docs/DECISIONS.md
+!docs/RUNTIME_TESTING.md

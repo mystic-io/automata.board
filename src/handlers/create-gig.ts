@@ -15,15 +15,14 @@
 import type { Env, GigRecord } from '../types';
 import { validateCreateGigPayload, jsonResponse, errorResponse } from '../utils/validation';
 import type { Context } from 'hono';
+import { createTunnelGrant, hashTunnelGrant } from '../services/tunnel-grants';
 
 /**
  * Handles POST /v1/gigs/create
  */
-export async function handleCreateGig(
-  c: Context<{ Bindings: Env }>
-): Promise<Response> {
+export async function handleCreateGig(c: Context<{ Bindings: Env }>): Promise<Response> {
   const env = c.env;
-  
+
   // -----------------------------------------------------------------------
   // Step 1: Parse & Validate
   // -----------------------------------------------------------------------
@@ -55,6 +54,8 @@ export async function handleCreateGig(
   const gigId = crypto.randomUUID();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + payload.payload.ttl_minutes * 60 * 1000);
+  const buyerGrant = createTunnelGrant('buyer', payload.sender, expiresAt.toISOString());
+  const buyerGrantHash = await hashTunnelGrant(buyerGrant.token);
 
   const gigRecord: GigRecord = {
     gig_id: gigId,
@@ -87,15 +88,30 @@ export async function handleCreateGig(
         gigRecord.expires_at
       )
       .run();
+
+    const tunnel = env.TUNNEL.getByName(gigId);
+    await tunnel.prepareTunnelSession({
+      gig_id: gigId,
+      buyer_identity: payload.sender,
+      buyer_grant_hash: buyerGrantHash,
+      expires_at: expiresAt.toISOString(),
+    });
   } catch (err) {
-    console.error('D1 insert error:', err);
-    return errorResponse('Failed to create gig — database error', 500);
+    console.error('Gig creation or tunnel preparation error:', err);
+    try {
+      await env.TUNNEL.getByName(gigId).revokeTunnelSession('gig creation failed');
+      await env.DB.prepare('DELETE FROM agent_gigs WHERE gig_id = ?').bind(gigId).run();
+    } catch (cleanupError) {
+      console.error('Failed to clean up partially created gig:', cleanupError);
+    }
+    return errorResponse('Failed to create gig', 500);
   }
 
   return jsonResponse(
     {
       message: 'Gig created successfully',
       gig: gigRecord,
+      tunnel_grant: buyerGrant,
     },
     201
   );

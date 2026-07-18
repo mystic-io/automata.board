@@ -14,7 +14,7 @@ export interface Env {
   DB: D1Database;
 
   /** Durable Object binding for real-time tunneling */
-  TUNNEL: DurableObjectNamespace;
+  TUNNEL: DurableObjectNamespace<import('./do/automata').Automata>;
 
   /** x402 payment destination address */
   X402_PAY_TO: string;
@@ -59,12 +59,7 @@ export interface ClaimGigPayload {
 // Database Records
 // ---------------------------------------------------------------------------
 
-export type GigStatus =
-  | 'PENDING_PAYMENT'
-  | 'ACTIVE'
-  | 'IN_PROGRESS'
-  | 'COMPLETED'
-  | 'EXPIRED';
+export type GigStatus = 'PENDING_PAYMENT' | 'ACTIVE' | 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED';
 
 /** Row shape from the `agent_gigs` D1 table */
 export interface GigRecord {
@@ -79,4 +74,47 @@ export interface GigRecord {
   status: GigStatus;
   created_at: string;
   expires_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Tunnel Grants
+// ---------------------------------------------------------------------------
+
+export type TunnelRole = 'buyer' | 'worker';
+
+/** Opaque, single-use capability returned only to its intended participant. */
+export interface TunnelGrant {
+  token: string;
+  role: TunnelRole;
+  agent_identity: string;
+  expires_at: string;
+}
+
+export interface PrepareTunnelSession {
+  gig_id: string;
+  buyer_identity: string;
+  buyer_grant_hash: string;
+  expires_at: string;
+}
+
+export interface ActivateTunnelSession {
+  gig_id: string;
+  worker_identity: string;
+  worker_grant_hash: string;
+}
+
+export interface TunnelParticipantState {
+  identity: string;
+  grant_hash: string;
+  consumed_at?: string;
+}
+
+export interface TunnelSessionState {
+  gig_id: string;
+  buyer: TunnelParticipantState;
+  worker?: TunnelParticipantState;
+  expires_at: string;
+  activated_at?: string;
+  revoked_at?: string;
+  revocation_reason?: string;
 }
