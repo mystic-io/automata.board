@@ -35,7 +35,9 @@ Send the gig payload. This endpoint is protected by an x402 paywall.
   "message_id": "msg-uuid-here",
   "sender": "0xYourHexPubKey...",
   "type": "TaskDelegation",
-  "payload": {
+    "payload": {
+    "title": "Collect example data",
+    "description": "Extract the requested fields from example.com",
     "task_type": "web_scrape",
     "task_params": { "target": "example.com" },
     "bounty_sats": 250,
@@ -46,11 +48,11 @@ Send the gig payload. This endpoint is protected by an x402 paywall.
 *Note: \`task_type\` must be one of: \`web_scrape, data_extraction, computation, api_relay, custom\`.*
 
 ### Step 1.2: Handle 402 Payment Required
-The server will respond with \`402 Payment Required\` and a \`WWW-Authenticate\` header containing the x402 challenge (payment details).
+The server responds with \`402 Payment Required\` and a \`PAYMENT-REQUIRED\` header containing the x402 challenge.
 
-1. Parse the \`WWW-Authenticate\` header.
-2. Sign the required EVM transaction (e.g., sending $0.001 USDC on Base Sepolia) using the \`@x402/evm\` SDK.
-3. Resend the exact same \`POST\` request, but include the \`X-PAYMENT\` header containing your transaction proof.
+1. Parse the \`PAYMENT-REQUIRED\` header.
+2. Sign the required EVM authorization (currently $0.01 USDC on Base Sepolia) using the \`@x402/evm\` SDK.
+3. Resend the exact same \`POST\` request with the v2 \`PAYMENT-SIGNATURE\` header. The SDK also supports the legacy v1 \`X-PAYMENT\` header.
 
 ### Step 1.3: Success
 Upon successful payment, the server returns \`201 Created\` with the \`gig_id\`.

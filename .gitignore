@@ -22,7 +22,10 @@ Thumbs.db
 
 # TypeScript cache
 *.tsbuildinfo
+worker-startup.cpuprofile
 
 # Logs
 *.log
 npm-debug.log*
+
+docs/

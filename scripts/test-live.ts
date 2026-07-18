@@ -2,29 +2,40 @@ import { x402Client, x402HTTPClient } from "@x402/core/client";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
 import { createWalletClient, http } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
-import { base } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 import WebSocket from "ws";
 import { config } from "dotenv";
+import { execFileSync } from 'node:child_process';
+import { PAYMENT_NETWORK } from '../src/config';
 
 config({ path: ".dev.vars" });
 
-const API_URL = "https://automata.dev-lab.workers.dev";
+const API_URL = process.env.API_URL;
 const MNEMONIC = process.env.WALLET_MNEMONIC;
+const D1_DATABASE = process.env.AUTOMATA_D1_DATABASE;
 
-if (!MNEMONIC) {
-  throw new Error("Missing WALLET_MNEMONIC in .dev.vars");
+if (!API_URL || !MNEMONIC || !D1_DATABASE) {
+  throw new Error('API_URL, WALLET_MNEMONIC, and AUTOMATA_D1_DATABASE are required');
 }
 
-// 1. Initialize Viem Wallet on Base Mainnet
+if (process.env.ALLOW_REMOTE_D1_MUTATION !== 'true') {
+  throw new Error('Set ALLOW_REMOTE_D1_MUTATION=true to acknowledge remote test-data writes');
+}
+
+if (!/^[a-z0-9-]+$/.test(D1_DATABASE)) {
+  throw new Error('AUTOMATA_D1_DATABASE contains invalid characters');
+}
+
+// 1. Initialize Viem Wallet on Base Sepolia
 const account = mnemonicToAccount(MNEMONIC);
 const walletClient = createWalletClient({
   account,
-  chain: base,
-  transport: http(),
+  chain: baseSepolia,
+  transport: http('https://sepolia.base.org'),
 });
 
 const client = new x402Client();
-registerExactEvmScheme(client, { signer: walletClient, networks: ["eip155:8453"] });
+registerExactEvmScheme(client, { signer: walletClient, networks: [PAYMENT_NETWORK] });
 const httpClient = new x402HTTPClient(client);
 
 async function runTests() {
@@ -51,11 +62,11 @@ async function runTests() {
 
   console.log("💉 Injecting test gig directly into D1 to bypass crypto signing...");
   const gigId = crypto.randomUUID();
-  const { execSync } = require("child_process");
-  
-  execSync(
-    `npx wrangler d1 execute automata-db-prod --remote --command "INSERT INTO agent_gigs (gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, expires_at) VALUES ('${gigId}', '0xBuyer', 'Test Gig', 'Test Description', 'computation', '{}', 10, 'ACTIVE', strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+1 hour'))"`,
-    { stdio: 'inherit' }
+  const sql = `INSERT INTO agent_gigs (gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, expires_at) VALUES ('${gigId}', '0xBuyer', 'Test Gig', 'Test Description', 'computation', '{}', 10, 'ACTIVE', strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+1 hour'))`;
+  execFileSync(
+    'npx',
+    ['wrangler', 'd1', 'execute', D1_DATABASE, '--remote', '--command', sql],
+    { stdio: 'inherit' },
   );
   
   console.log("✅ Gig Injected Successfully. ID:", gigId);

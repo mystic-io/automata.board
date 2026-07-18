@@ -1,7 +1,7 @@
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { createWalletClient, http } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
-import { base } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 import { toFacilitatorEvmSigner } from "@x402/evm";
 import { config } from "dotenv";
 
@@ -9,8 +9,8 @@ config({ path: ".dev.vars" });
 const account = mnemonicToAccount(process.env.WALLET_MNEMONIC!);
 const combinedClient = createWalletClient({
   account,
-  chain: base,
-  transport: http("https://base.drpc.org"),
+  chain: baseSepolia,
+  transport: http('https://sepolia.base.org'),
 });
 const signer = toFacilitatorEvmSigner(combinedClient);
 
@@ -34,7 +34,7 @@ async function run() {
     // The ExactEvmScheme just parses the header. The x402Facilitator executes it.
     // Let's use viem to call transferWithAuthorization directly and see what reverts!
     
-    const usdcAddress = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+    const usdcAddress = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
     const v = parseInt(payload.signature.slice(-2), 16);
     const r = payload.signature.slice(0, 66);
     const s = "0x" + payload.signature.slice(66, 130);
@@ -60,7 +60,7 @@ async function run() {
     // Simulate transaction
     // Note: We need publicClient to simulate
     const { createPublicClient } = require("viem");
-    const pc = createPublicClient({ chain: base, transport: http("https://base-rpc.publicnode.com") });
+    const pc = createPublicClient({ chain: baseSepolia, transport: http('https://sepolia.base.org') });
     
     const result = await pc.simulateContract({
       address: usdcAddress,

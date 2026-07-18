@@ -34,6 +34,10 @@ export interface ValidationError {
   message: string;
 }
 
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 /**
  * Validates the raw parsed body against the CreateGigPayload schema.
  * Returns an array of validation errors (empty = valid).
@@ -43,11 +47,11 @@ export function validateCreateGigPayload(
 ): { data: CreateGigPayload; errors: never[] } | { data: null; errors: ValidationError[] } {
   const errors: ValidationError[] = [];
 
-  if (!body || typeof body !== 'object') {
+  if (!isJsonObject(body)) {
     return { data: null, errors: [{ field: 'body', message: 'Request body must be a JSON object' }] };
   }
 
-  const obj = body as Record<string, unknown>;
+  const obj = body;
 
   if (typeof obj.message_id !== 'string' || obj.message_id.trim().length === 0) {
     errors.push({ field: 'message_id', message: 'Must be a non-empty string' });
@@ -61,10 +65,10 @@ export function validateCreateGigPayload(
     errors.push({ field: 'type', message: 'Must be exactly "TaskDelegation"' });
   }
 
-  if (!obj.payload || typeof obj.payload !== 'object') {
+  if (!isJsonObject(obj.payload)) {
     errors.push({ field: 'payload', message: 'Must be a JSON object' });
   } else {
-    const payload = obj.payload as Record<string, unknown>;
+    const payload = obj.payload;
 
     if (typeof payload.title !== 'string' || payload.title.trim().length === 0 || payload.title.length > 80) {
       errors.push({
@@ -87,7 +91,7 @@ export function validateCreateGigPayload(
       });
     }
 
-    if (!payload.task_params || typeof payload.task_params !== 'object') {
+    if (!isJsonObject(payload.task_params)) {
       errors.push({ field: 'payload.task_params', message: 'Must be a JSON object' });
     } else {
       const taskParamsStr = JSON.stringify(payload.task_params);
@@ -126,7 +130,19 @@ export function validateCreateGigPayload(
   }
 
   return {
-    data: obj as unknown as CreateGigPayload,
+    data: {
+      message_id: obj.message_id as string,
+      sender: obj.sender as string,
+      type: 'TaskDelegation',
+      payload: {
+        title: (obj.payload as Record<string, unknown>).title as string,
+        description: (obj.payload as Record<string, unknown>).description as string,
+        task_type: (obj.payload as Record<string, unknown>).task_type as string,
+        task_params: (obj.payload as Record<string, unknown>).task_params as Record<string, unknown>,
+        bounty_sats: (obj.payload as Record<string, unknown>).bounty_sats as number,
+        ttl_minutes: (obj.payload as Record<string, unknown>).ttl_minutes as number,
+      },
+    },
     errors: [] as never[],
   };
 }
@@ -139,11 +155,11 @@ export function validateClaimGigPayload(
 ): { data: ClaimGigPayload; errors: never[] } | { data: null; errors: ValidationError[] } {
   const errors: ValidationError[] = [];
 
-  if (!body || typeof body !== 'object') {
+  if (!isJsonObject(body)) {
     return { data: null, errors: [{ field: 'body', message: 'Request body must be a JSON object' }] };
   }
 
-  const obj = body as Record<string, unknown>;
+  const obj = body;
 
   if (typeof obj.message_id !== 'string' || obj.message_id.trim().length === 0) {
     errors.push({ field: 'message_id', message: 'Must be a non-empty string' });
@@ -157,10 +173,10 @@ export function validateClaimGigPayload(
     errors.push({ field: 'type', message: 'Must be exactly "TaskClaim"' });
   }
 
-  if (!obj.payload || typeof obj.payload !== 'object') {
+  if (!isJsonObject(obj.payload)) {
     errors.push({ field: 'payload', message: 'Must be a JSON object' });
   } else {
-    const payload = obj.payload as Record<string, unknown>;
+    const payload = obj.payload;
     if (typeof payload.gig_id !== 'string' || payload.gig_id.trim().length === 0) {
       errors.push({ field: 'payload.gig_id', message: 'Must be a non-empty string' });
     }
@@ -171,7 +187,14 @@ export function validateClaimGigPayload(
   }
 
   return {
-    data: obj as unknown as ClaimGigPayload,
+    data: {
+      message_id: obj.message_id as string,
+      sender: obj.sender as string,
+      type: 'TaskClaim',
+      payload: {
+        gig_id: (obj.payload as Record<string, unknown>).gig_id as string,
+      },
+    },
     errors: [] as never[],
   };
 }

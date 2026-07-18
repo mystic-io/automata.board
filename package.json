@@ -9,11 +9,13 @@
     "db:init": "wrangler d1 execute automata-db --local --file=schema.sql",
     "sim:buyer": "tsx scripts/buyer-agent.ts",
     "sim:worker": "tsx scripts/worker-agent.ts",
-    "test": "vitest run --passWithNoTests",
-    "lint": "eslint src/**/*.ts"
+    "test": "vitest run",
+    "lint": "eslint src/**/*.ts",
+    "build": "wrangler deploy --dry-run --env=\"\" --outdir /tmp/automata-board-build",
+    "verify": "npm run typecheck && npm run lint && npm test && npm run build"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260601.0",
+    "@cloudflare/workers-types": "^5.20260718.1",
     "@eslint/js": "^10.0.1",
     "@types/eventsource": "^1.1.15",
     "@types/ws": "^8.18.1",
@@ -24,9 +26,9 @@
     "tsx": "^4.22.4",
     "typescript": "^5.8.0",
     "typescript-eslint": "^8.62.1",
-    "viem": "^2.54.1",
+    "viem": "^2.55.2",
     "vitest": "^4.1.9",
-    "wrangler": "^4.0.0",
+    "wrangler": "^4.112.0",
     "ws": "^8.21.0"
   },
   "dependencies": {
