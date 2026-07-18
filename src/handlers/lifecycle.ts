@@ -50,7 +50,9 @@ function errorForLifecycle(error: unknown): Response {
   if (
     message.includes('authorization') ||
     message.includes('grant') ||
-    message.includes('identity')
+    message.includes('identity') ||
+    message.includes('expired') ||
+    message.includes('revoked')
   )
     return errorResponse('Invalid lifecycle authorization', 401);
   if (

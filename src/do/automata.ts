@@ -351,8 +351,12 @@ export class Automata extends DurableObject<Env> {
       !agentIdentity ||
       agentIdentity.length > MAX_AGENT_IDENTITY_LENGTH
     ) {
+      const rejectedSession = await this.ctx.storage.get<TunnelSessionState>(SESSION_KEY);
       logEvent('warn', 'tunnel.grant_rejected', {
         correlation_id: correlationId,
+        gig_id: rejectedSession?.gig_id,
+        lifecycle_state: rejectedSession?.lifecycle_state,
+        lifecycle_version: rejectedSession?.lifecycle_version,
         reason: 'missing_credentials',
         outcome: 'rejected',
         status: 401,
@@ -367,8 +371,12 @@ export class Automata extends DurableObject<Env> {
       providedHash
     );
     if (!authorization.authorized) {
+      const rejectedSession = await this.ctx.storage.get<TunnelSessionState>(SESSION_KEY);
       logEvent('warn', 'tunnel.grant_rejected', {
         correlation_id: correlationId,
+        gig_id: rejectedSession?.gig_id,
+        lifecycle_state: rejectedSession?.lifecycle_state,
+        lifecycle_version: rejectedSession?.lifecycle_version,
         reason: authorization.reason,
         outcome: 'rejected',
         status: authorization.status,

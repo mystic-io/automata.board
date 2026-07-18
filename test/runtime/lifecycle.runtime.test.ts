@@ -294,10 +294,13 @@ describe('gig lifecycle in workerd', () => {
     expect(response.status).toBe(401);
     expect(response.headers.get('X-Correlation-ID')).toBe(correlationId);
     const telemetry = [...info.mock.calls, ...warn.mock.calls].flat().join('\n');
+    const rejectionTelemetry = warn.mock.calls.flat().join('\n');
     expect(telemetry).toContain('lifecycle.transition');
     expect(telemetry).toContain('tunnel.grant_rejected');
     expect(telemetry).toContain(correlationId);
     expect(telemetry).not.toContain(fixture.buyerGrant.token);
+    expect(rejectionTelemetry).toContain(`"gig_id":"${fixture.gig.gig_id}"`);
+    expect(rejectionTelemetry).toContain('"lifecycle_state":"TUNNEL_GRANTED"');
     info.mockRestore();
     warn.mockRestore();
   });
