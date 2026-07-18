@@ -13,12 +13,15 @@
     "db:init": "wrangler d1 execute automata-db --local --file=schema.sql",
     "sim:buyer": "tsx scripts/buyer-agent.ts",
     "sim:worker": "tsx scripts/worker-agent.ts",
-    "test": "vitest run",
-    "lint": "eslint src/**/*.ts",
+    "test": "vitest run src",
+    "test:runtime": "vitest run --config vitest.runtime.config.mts",
+    "typecheck:runtime": "tsc --noEmit -p test/runtime/tsconfig.json",
+    "lint": "eslint src/**/*.ts test/runtime/**/*.ts vitest.runtime.config.mts",
     "build": "wrangler deploy --dry-run --env=\"\" --outdir /tmp/automata-board-build",
-    "verify": "npm run typecheck && npm run lint && npm test && npm run build"
+    "verify": "npm run typecheck && npm run typecheck:runtime && npm run lint && npm test && npm run test:runtime && npm run build"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.18.6",
     "@cloudflare/workers-types": "^5.20260718.1",
     "@eslint/js": "^10.0.1",
     "@types/eventsource": "^1.1.15",

@@ -16,9 +16,9 @@ flowchart LR
   A["Now: Trustworthy testnet slice\n2–4 engineer-weeks"] --> B["Next: Protocol-complete beta\n3–5 engineer-weeks"]
   B --> C["Later: Federated adoption\n4–8+ engineer-weeks"]
 
-  A --> A1["Safe payment defaults"]
-  A --> A2["Tests + CI"]
-  A --> A3["Authenticated two-party tunnel"]
+  A --> A1["✓ Safe payment defaults"]
+  A --> A2["✓ Workerd tests + CI"]
+  A --> A3["Next: authenticated two-party tunnel"]
   A --> A4["Lifecycle + observability"]
 
   B --> B1["MCP create/claim/status parity"]
@@ -41,8 +41,10 @@ from an attractive demo into a credible integration target.
 
 1. **Safety baseline** — Base Sepolia defaults, explicit mainnet gate, dependency
    advisories resolved, secrets documented, unsafe remote scripts guarded.
-2. **Verification baseline** — real unit/integration tests, Cloudflare runtime
-   tests for D1/DO behavior, CI for types/lint/tests/dry-run bundle.
+2. **Verification baseline (complete)** — unit tests plus workerd integration
+   coverage for D1 lifecycle/concurrency, Durable Object WebSockets, simulated
+   x402 verification, and MCP; CI runs types, lint, both suites, and dry-run
+   bundling.
 3. **Tunnel security** — signed short-lived join grants bound to gig, role, and
    agent identity; enforce exactly one buyer and one worker; validate messages.
 4. **Lifecycle correctness** — completion transition, deadline propagated to the
@@ -54,6 +56,10 @@ Dependencies: safety and tests precede tunnel/lifecycle changes. Tunnel grants
 depend on a settled agent-signature format. Cleanup is enabled only after clock
 and lifecycle integration tests exist.
 
+**Next implementation milestone:** authenticated two-party tunnel grants. Add
+signed, short-lived buyer/worker grants and third-peer rejection by extending
+the workerd WebSocket suite before changing the public tunnel contract.
+
 ### Milestone 1 task board
 
 - [x] Audit repository and run local baseline
@@ -63,7 +69,8 @@ and lifecycle integration tests exist.
 - [x] Add CI verification workflow and dry-run build command
 - [x] Resolve dependency advisories and verify updated bundle
 - [ ] Bring simulator/diagnostic scripts into TypeScript and lint verification
-- [ ] Add Cloudflare runtime test harness for D1 and Durable Objects
+- [x] Add secret-free Cloudflare runtime harness for D1 lifecycle/concurrency,
+      Durable Object WebSockets, simulated x402 verification, and MCP
 - [ ] Add signed, expiring tunnel join grants and two-party enforcement
 - [ ] Model completion and expiry end to end
 - [ ] Align all machine-readable contracts and walkthroughs
