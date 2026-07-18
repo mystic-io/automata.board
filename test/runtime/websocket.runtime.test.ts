@@ -215,6 +215,13 @@ describe('authenticated Durable Object WebSocket tunnel in workerd', () => {
     const workerClosed = waitForClose(timeoutWorker);
     const timeoutStub = getTunnelStub(timedOut.gig.gig_id);
 
+    await runInDurableObject(timeoutStub, async (_instance, state) => {
+      const session = await state.storage.get<TunnelSessionState>('tunnel_session');
+      if (!session) throw new Error('Expected timeout session');
+      session.expires_at = new Date(Date.now() - 1).toISOString();
+      await state.storage.put('tunnel_session', session);
+    });
+
     expect(await runDurableObjectAlarm(timeoutStub)).toBe(true);
     expect((await buyerClosed).code).toBe(4003);
     expect((await workerClosed).code).toBe(4003);

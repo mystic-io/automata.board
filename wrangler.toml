@@ -11,6 +11,7 @@ ENVIRONMENT = "development"
 binding = "DB"
 database_name = "automata-db"
 database_id = "e2f3ae5a-e9e9-49c6-9e36-95f955503e56"
+migrations_dir = "migrations"
 
 # Secrets (set via `wrangler secret put`):
 #   X402_PAY_TO
@@ -24,9 +25,9 @@ class_name = "Automata"
 tag = "v1"
 new_sqlite_classes = ["Automata"]
 
-# Cron Triggers (runs every 15 minutes)
-# [triggers]
-# crons = ["*/15 * * * *"]
+# Cron Triggers (reconciles lifecycle projections every 15 minutes)
+[triggers]
+crons = ["*/15 * * * *"]
 
 # ---------------------------------------------------------------------------
 # Production Environment
@@ -35,20 +36,21 @@ new_sqlite_classes = ["Automata"]
 [env.production.vars]
 ENVIRONMENT = "production"
 
-# [env.production.triggers]
-# crons = ["*/15 * * * *"]
+[env.production.triggers]
+crons = ["*/15 * * * *"]
 
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "automata-db-prod"
 database_id = "e9b5fe2a-2ff9-4838-b5d0-dd698c8a357e"
+migrations_dir = "migrations"
 
 [[env.production.durable_objects.bindings]]
 name = "TUNNEL"
 class_name = "Automata"
 
 [observability]
-enabled = false
+enabled = true
 head_sampling_rate = 1
 
 [observability.logs]

@@ -76,4 +76,24 @@ describe('x402 payment verification in workerd', () => {
     }>();
     expect(row?.count).toBe(1);
   });
+
+  it('fails the created lifecycle closed when settlement fails after handler execution', async () => {
+    const accepted = await getPaymentRequirements(VALID_CREATE_PAYLOAD);
+    const response = await workerFetch('http://automata.test/v1/gigs/create', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'PAYMENT-SIGNATURE': encodePaymentSignature(accepted, { nonce: 'settlement-failure' }),
+        'X-Correlation-ID': 'corr-settlement-failure',
+      },
+      body: JSON.stringify(VALID_CREATE_PAYLOAD),
+    });
+    expect(response.status).toBe(402);
+    expect(response.headers.get('X-Correlation-ID')).toBe('corr-settlement-failure');
+    const row = await env.DB.prepare('SELECT status, lifecycle_state FROM agent_gigs').first<{
+      status: string;
+      lifecycle_state: string;
+    }>();
+    expect(row).toMatchObject({ status: 'EXPIRED', lifecycle_state: 'FAILED' });
+  });
 });

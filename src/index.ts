@@ -8,12 +8,13 @@
 import { Hono } from 'hono';
 import type { MiddlewareHandler } from 'hono';
 import { cors } from 'hono/cors';
-import type { Env, GigRecord } from './types';
+import type { Env, GigRecord, RequestContextVariables } from './types';
 import { handleCreateGig } from './handlers/create-gig';
 import { handleClaimGig } from './handlers/claim-gig';
 import { handleAgentDocs } from './handlers/docs';
 import { handleOpenAPI } from './handlers/openapi';
 import { handleTunnelConnect } from './handlers/tunnel';
+import { handleLifecycleAction, handleLifecycleStatus, handleReconnect } from './handlers/lifecycle';
 import { jsonResponse, errorResponse } from './utils/validation';
 import { PAYMENT_NETWORK, PAYMENT_NETWORK_NAME, PAYMENT_PRICE } from './config';
 import { createMcpHandler } from 'agents/mcp';
@@ -23,8 +24,9 @@ import {
   PaymentConfigurationError,
   type PaymentMiddlewareProvider,
 } from './services/x402';
+import { logEvent, resolveCorrelationId, safeErrorName } from './services/observability';
 
-type AutomataApp = Hono<{ Bindings: Env }>;
+type AutomataApp = Hono<{ Bindings: Env; Variables: RequestContextVariables }>;
 
 export interface AppDependencies {
   createPaymentMiddleware: PaymentMiddlewareProvider;
@@ -35,11 +37,26 @@ const DEFAULT_DEPENDENCIES: AppDependencies = {
 };
 
 export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES): AutomataApp {
-  const app = new Hono<{ Bindings: Env }>();
+  const app = new Hono<{ Bindings: Env; Variables: RequestContextVariables }>();
 
   // ---------------------------------------------------------------------------
   // Middleware
   // ---------------------------------------------------------------------------
+
+  app.use('*', async (c, next) => {
+    const correlationId = resolveCorrelationId(c.req.header('X-Correlation-ID') ?? null);
+    const startedAt = Date.now();
+    c.set('correlationId', correlationId);
+    await next();
+    c.header('X-Correlation-ID', correlationId);
+    logEvent('info', 'http.request_completed', {
+      correlation_id: correlationId,
+      method: c.req.method,
+      path: c.req.path,
+      status: c.res.status,
+      duration_ms: Date.now() - startedAt,
+    });
+  });
 
   // CORS preflight
   app.use(
@@ -51,6 +68,7 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
         'Content-Type',
         'Authorization',
         'X-Agent-Identity',
+        'X-Correlation-ID',
         'PAYMENT-SIGNATURE',
         'X-PAYMENT',
       ],
@@ -60,14 +78,39 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
 
   // Apply payment middleware to /v1/gigs/create
   app.use('/v1/gigs/create', async (c, next) => {
+    const hasPayment = Boolean(c.req.header('PAYMENT-SIGNATURE') || c.req.header('X-PAYMENT'));
     try {
       const middleware: MiddlewareHandler = await dependencies.createPaymentMiddleware(c.env);
-      return middleware(c, next);
+      const response = await middleware(c, next);
+      const status = response?.status ?? c.res.status;
+      const createdGigId = c.get('createdGigId');
+      if (status === 402 && createdGigId) {
+        await c.env.TUNNEL.getByName(createdGigId).revokeTunnelSession(
+          'x402 settlement failed after gig creation',
+          c.get('correlationId')
+        );
+      }
+      logEvent(status === 402 ? 'warn' : 'info', 'x402.verification_outcome', {
+        correlation_id: c.get('correlationId'),
+        gig_id: createdGigId,
+        outcome: status === 402 ? (hasPayment ? 'rejected' : 'challenge') : 'verified_and_settled',
+        status,
+      });
+      return response;
     } catch (error) {
       if (error instanceof PaymentConfigurationError) {
-        console.error(`CRITICAL: ${error.message}`);
+        logEvent('error', 'x402.configuration_failed', {
+          correlation_id: c.get('correlationId'),
+          outcome: 'failed_closed',
+          error_name: error.name,
+        });
         return errorResponse('Payment configuration error', 500);
       }
+      logEvent('error', 'x402.verification_outcome', {
+        correlation_id: c.get('correlationId'),
+        outcome: 'error',
+        error_name: safeErrorName(error),
+      });
       throw error;
     }
   });
@@ -87,6 +130,10 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
   // Claim gig
   app.post('/v1/gigs/claim', handleClaimGig);
 
+  app.get('/v1/gigs/:id/status', handleLifecycleStatus);
+  app.post('/v1/gigs/:id/lifecycle', handleLifecycleAction);
+  app.post('/v1/gigs/:id/reconnect', handleReconnect);
+
   // WebSocket tunnel for a gig
   app.get('/v1/gigs/:id/tunnel', handleTunnelConnect);
 
@@ -95,7 +142,7 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
     const env = c.env;
     try {
       const result = await env.DB.prepare(
-        `SELECT gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, created_at, expires_at
+        `SELECT gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, lifecycle_state, lifecycle_version, created_at, updated_at, expires_at
        FROM agent_gigs
        WHERE status = 'ACTIVE' AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
        ORDER BY expires_at DESC
@@ -130,7 +177,7 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
       async () => {
         try {
           const result = await c.env.DB.prepare(
-            `SELECT gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, created_at, expires_at
+            `SELECT gig_id, buyer_pubkey, title, description, task_type, payload_json, bounty_sats, status, lifecycle_state, lifecycle_version, created_at, updated_at, expires_at
            FROM agent_gigs
            WHERE status = 'ACTIVE' AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
            ORDER BY expires_at DESC
@@ -157,13 +204,15 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
   });
 
   // Health checks
-  const healthCheck = () =>
-    jsonResponse({
-      service: 'automata',
-      version: '0.1.0',
-      status: 'operational',
-      timestamp: new Date().toISOString(),
-    });
+  const healthCheck = async (c: Parameters<typeof handleLifecycleStatus>[0]) => {
+    try {
+      await c.env.DB.prepare('SELECT 1 AS ready').first<{ ready: number }>();
+      return jsonResponse({ service: 'automata', version: '0.1.0', status: 'ready', checks: { d1: 'ready', lifecycle_coordinator: 'configured', observability: 'enabled' }, timestamp: new Date().toISOString() });
+    } catch (error) {
+      logEvent('error', 'health.readiness_failed', { correlation_id: c.get('correlationId'), outcome: 'not_ready', error_name: safeErrorName(error) });
+      return jsonResponse({ service: 'automata', status: 'not_ready', checks: { d1: 'failed' }, timestamp: new Date().toISOString() }, 503);
+    }
+  };
 
   app.get('/', async (c) => {
     const acceptHeader = c.req.header('accept') || '';
@@ -211,6 +260,8 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
         claim_task: 'POST /v1/gigs/claim',
         list_tasks: 'GET /v1/gigs/discover',
         tunnel: 'GET /v1/gigs/:id/tunnel',
+        lifecycle: 'GET /v1/gigs/:id/status; POST /v1/gigs/:id/lifecycle',
+        reconnect: 'POST /v1/gigs/:id/reconnect',
         docs: 'GET /.well-known/llms.txt',
         schema: 'GET /v1/openapi.json',
       },
@@ -224,7 +275,7 @@ export function createApp(dependencies: AppDependencies = DEFAULT_DEPENDENCIES):
 
   // Global error handler
   app.onError((err, c) => {
-    console.error('Unhandled error:', err);
+    logEvent('error', 'http.unhandled_error', { correlation_id: c.get('correlationId'), error_name: safeErrorName(err), path: c.req.path });
     const isDev = c.env.ENVIRONMENT === 'development';
     return errorResponse(
       'Internal server error',
@@ -245,28 +296,17 @@ const app = createApp();
 
 export default {
   fetch: app.fetch,
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+  async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
+    const correlationId = crypto.randomUUID();
     try {
-      // 1. Soft-delete based on TTL expiration
-      const expireResult = await env.DB.prepare(
-        `UPDATE agent_gigs 
-         SET status = 'EXPIRED' 
-         WHERE status IN ('ACTIVE', 'PENDING_PAYMENT') 
-         AND expires_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
-      ).run();
-
-      console.log(`Cron soft-deleted expired tasks. Rows updated: ${expireResult.meta.changes}`);
-
-      // 2. Hard-prune unmatched or unpaid tasks exactly 2 hours post-creation (PRD Requirement 7)
-      const pruneResult = await env.DB.prepare(
-        `DELETE FROM agent_gigs 
-         WHERE status IN ('PENDING_PAYMENT', 'ACTIVE', 'EXPIRED') 
-         AND created_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-2 hours')`
-      ).run();
-
-      console.log(`Cron hard-pruned old tasks. Rows deleted: ${pruneResult.meta.changes}`);
+      const rows = await env.DB.prepare(
+        `SELECT gig_id FROM agent_gigs WHERE lifecycle_state NOT IN ('CLOSED', 'CANCELLED', 'EXPIRED', 'FAILED') ORDER BY expires_at ASC LIMIT 100`
+      ).all<{ gig_id: string }>();
+      const results = await Promise.allSettled(rows.results.map((row) => env.TUNNEL.getByName(row.gig_id).reconcileProjection(correlationId)));
+      const rejected = results.filter((result) => result.status === 'rejected').length;
+      logEvent(rejected > 0 ? 'warn' : 'info', 'lifecycle.scheduled_reconciliation', { correlation_id: correlationId, outcome: rejected > 0 ? 'partial' : 'success', checked: rows.results.length, rejected });
     } catch (err) {
-      console.error('Failed to run scheduled gig pruning:', err);
+      logEvent('error', 'lifecycle.scheduled_reconciliation', { correlation_id: correlationId, outcome: 'failed', error_name: safeErrorName(err) });
     }
   },
 };
