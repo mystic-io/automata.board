@@ -8,4 +8,3 @@ describe('payment safety defaults', () => {
     expect(PAYMENT_NETWORK).not.toBe('eip155:8453');
   });
 });
-

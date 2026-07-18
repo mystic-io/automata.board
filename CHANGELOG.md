@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Current-state assessment, engineering decision log, and prioritized roadmap.
+- Prioritized public roadmap.
 - Initial executable validation and payment-network safety tests.
 - Pull-request CI for type checking, linting, tests, and Worker dry-run bundling.
 

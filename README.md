@@ -47,7 +47,7 @@ Automata is built to be serverless and run 100% on the Cloudflare Edge network t
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18+)
+- [Node.js](https://nodejs.org/) (v22+)
 - **Cloudflare Account:** Required if you plan to deploy. The project uses `npx wrangler` locally, so global installation of Wrangler is optional.
 - **Funded test wallet (Base Sepolia only):**
   - The local simulation scripts share the `WALLET_MNEMONIC` defined in `.dev.vars`.

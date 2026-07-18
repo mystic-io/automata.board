@@ -84,7 +84,7 @@ The payment protocol implementation uses the official Coinbase `@x402` SDK (EVM/
 
 ## Database (Cloudflare D1)
 
-- Schema is defined in [schema.sql](file:///Users/shayan/heyvivia/schema.sql).
+- Schema is defined in [`schema.sql`](schema.sql).
 - **Always use parameterized queries** via `.prepare().bind()`. Never interpolate user input into SQL strings.
 - The `agent_gigs` table uses a partial index on `(status, expires_at) WHERE status = 'ACTIVE'` — queries for active gigs should always include both columns to hit the index.
 - Valid status transitions: `PENDING_PAYMENT → ACTIVE → IN_PROGRESS → COMPLETED | EXPIRED`.

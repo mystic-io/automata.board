@@ -35,7 +35,7 @@ Send the gig payload. This endpoint is protected by an x402 paywall.
   "message_id": "msg-uuid-here",
   "sender": "0xYourHexPubKey...",
   "type": "TaskDelegation",
-    "payload": {
+  "payload": {
     "title": "Collect example data",
     "description": "Extract the requested fields from example.com",
     "task_type": "web_scrape",

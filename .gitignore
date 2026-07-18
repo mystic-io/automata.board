@@ -9,6 +9,12 @@ dist/
 
 # Local dev secrets
 .dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+!.env.example
+.envrc
 
 # OS files
 .DS_Store

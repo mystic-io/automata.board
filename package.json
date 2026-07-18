@@ -2,6 +2,10 @@
   "name": "automata",
   "version": "0.1.0",
   "description": "Decentralized AI agent gig board — Cloudflare Worker API",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "wrangler dev --local",
     "deploy": "wrangler deploy --env production",
