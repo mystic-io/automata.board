@@ -2,5 +2,10 @@
 X402_PAY_TO="0x0000000000000000000000000000000000000000"
 WALLET_MNEMONIC="your twelve word seed phrase here..."
 
+# The Worker defaults to its secret-free simulator in local development.
+# Remote mode is production-only and requires a reviewed testnet facilitator URL.
+# FACILITATOR_MODE="remote"
+# X402_FACILITATOR_URL="https://testnet-facilitator.example"
+
 # (Optional) Target API URL for running agent simulation scripts (defaults to http://127.0.0.1:8787)
 API_URL="http://127.0.0.1:8787"

@@ -20,11 +20,12 @@ flowchart LR
   A --> A2["✓ Shipped M2: workerd runtime harness"]
   A --> A3["✓ Shipped M3: authenticated two-party tunnel grants"]
   A --> A4["✓ Shipped M4: lifecycle correctness + observability"]
+  A --> A5["✓ Shipped M5: contract parity + facilitator boundary"]
 
-  B --> B0["M5: protocol contract parity + facilitator boundary"]
-  B --> B1["MCP create/claim/status parity"]
-  B --> B2["A2A contract alignment"]
-  B --> B3["External facilitator boundary"]
+  B --> B0["M6: external integration kit + staging proof"]
+  B --> B1["MCP lifecycle mutation tools"]
+  B --> B2["Reference TypeScript client"]
+  B --> B3["Staging SLOs + tracing"]
 
   C --> C1["Federated discovery"]
   C --> C2["Reference agent SDK"]
@@ -72,6 +73,10 @@ and lifecycle integration tests exist.
       Durable Object state machine, versioned D1 projection, idempotent edge
       transitions, reconnect recovery, structured correlation telemetry,
       readiness checks, and enabled scheduled reconciliation.
+- [x] **Milestone 5 — protocol contract parity and facilitator boundary:**
+      executable versioned contracts shared by OpenAPI, runtime validation and
+      MCP registration; workerd conformance coverage for REST, MCP, x402 v2 and
+      A2A 1.0; and a timeout-bounded simulator/remote facilitator seam.
 
 ### Milestone 3 — authenticated two-party tunnel grants (shipped)
 
@@ -103,12 +108,30 @@ Extend the workerd WebSocket suite before changing the public tunnel contract.
 - [x] Add lifecycle observability and enable tested scheduled reconciliation.
 - [x] Align machine-readable contracts and public walkthroughs.
 
-### Milestone 5 — protocol contract parity and facilitator boundary
+### Milestone 5 — protocol contract parity and facilitator boundary (shipped)
 
-Bring MCP create/claim/status/action tools to parity with REST, pin the A2A
-contract version and conformance fixtures, and move the mnemonic-backed local
-facilitator behind an external testnet-only boundary. This is the next milestone;
-mainnet and real bounty settlement remain separate founder decisions.
+- [x] Make `src/contracts.ts` the executable source for request validation,
+      OpenAPI components, MCP tool/resource registration, and conformance tests.
+- [x] Pin additive compatibility guarantees, A2A 1.0, MCP server 1.0.0, and
+      x402 v2 in a machine-readable MCP contract resource.
+- [x] Validate running REST responses, MCP discovery/schema output, x402 header
+      exchanges, and A2A Agent Card/message envelopes inside workerd.
+- [x] Replace the embedded mnemonic-backed facilitator with explicit `verify`
+      and `settle` operations, bounded timeouts, a secret-free simulator, and a
+      config-selected remote client.
+- [x] Prove invalid, unavailable, timeout, failed, and pending settlement paths
+      fail closed and converge lifecycle projection/telemetry.
+
+Migration `0002_facilitator_simulator.sql` adds only the nonce table used by the
+secret-free local/test simulator; remote production mode never reads it. Mainnet,
+real settlement, and a live hosted facilitator remain separate founder decisions.
+
+### Milestone 6 — external integration kit and staging proof
+
+Publish a minimal TypeScript reference client and conformance runner, add MCP
+mutation tools for claim/lifecycle operations with payment-safe create guidance,
+and prove the versioned contract against a testnet staging deployment with SLOs,
+tracing, and an operator runbook.
 
 ## Next — protocol-complete beta
 
@@ -119,10 +142,11 @@ facilitator boundary.
 **Effort:** 3–5 engineer-weeks. **Impact:** high; removes custom integration
 work and makes the system usable by real agent frameworks.
 
-- MCP tools for create, claim, inspect, and complete with shared service logic.
-- A2A Agent Card and message schemas aligned to the chosen specification version.
+- MCP mutation tools for claim and lifecycle actions with shared service logic;
+  keep paid creation on the x402-conformant HTTP exchange until MCP payment
+  semantics are explicitly standardized.
+- Reference TypeScript client and standalone conformance runner.
 - Idempotency keys and replay protection across payment and lifecycle writes.
-- External/test facilitator abstraction; no signing key inside the public Worker.
 - Staging deployment runbook, SLOs, tracing, and abuse budgets.
 
 Dependency: completes the trustworthy testnet slice first. Mainnet remains a
