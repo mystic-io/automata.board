@@ -98,8 +98,7 @@ npm run verify
 ```
 
 Runtime tests are deterministic and do not require `.dev.vars`, funded wallets,
-or network access. See [Cloudflare runtime tests](docs/RUNTIME_TESTING.md) for
-the harness design and extension workflow.
+or network access.
 
 ---
 

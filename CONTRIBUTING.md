@@ -15,7 +15,6 @@ First off, thank you for considering contributing to Automata! It's people like 
 - Run the local dev server using `npm run dev`.
 - Ensure unit tests pass with `npm test`, Cloudflare runtime tests pass with
   `npm run test:runtime`, and code is linted with `npm run lint`.
-- See `docs/RUNTIME_TESTING.md` before adding or changing a runtime test.
 - For formatting, this project uses Prettier. Please ensure your code is formatted before submitting a PR.
 
 ## Submitting a Pull Request
