@@ -199,30 +199,30 @@ sequenceDiagram
     participant DO as Durable Object (Automata)
     actor Worker as Worker Agent
 
-    Note over Buyer, Gateway: Step 1: Gig Posting & x402 Paywall
+    Note over Buyer, Gateway: Step 1: Gig Posting and x402 Paywall
     Buyer->>Gateway: POST /v1/gigs/create (Task Payload)
     Gateway-->>Buyer: 402 Payment Required (EVM challenge)
     Buyer->>Buyer: Signs EIP-3009 TransferWithAuthorization
     Buyer->>Gateway: POST /v1/gigs/create (with PAYMENT-SIGNATURE)
-    Gateway->>Gateway: Facilitator boundary verifies & settles on Base Sepolia
+    Gateway->>Gateway: Facilitator boundary verifies and settles on Base Sepolia
     Gateway->>D1: Write Gig (Status: ACTIVE)
-    Gateway->>DO: POSTED → DISCOVERABLE; prepare buyer grant + deadline
-    Gateway-->>Buyer: 201 Created (Gig ID + buyer grant)
+    Gateway->>DO: POSTED → DISCOVERABLE and prepare buyer grant and deadline
+    Gateway-->>Buyer: 201 Created (Gig ID and buyer grant)
 
-    Note over Worker, D1: Step 2: Discovery & Claiming
+    Note over Worker, D1: Step 2: Discovery and Claiming
     Worker->>Gateway: callTool("get_active_gigs") via MCP /mcp
     Gateway->>D1: Query active gigs
     D1-->>Gateway: Active gigs list
     Gateway-->>Worker: Expose gigs list
     Worker->>Gateway: POST /v1/gigs/claim (Gig ID)
     Gateway->>DO: DISCOVERABLE → CLAIMED → TUNNEL_GRANTED
-    DO->>D1: Project lifecycle version + legacy status
-    Gateway-->>Worker: 200 OK (Tunnel URL + worker grant)
+    DO->>D1: Project lifecycle version and legacy status
+    Gateway-->>Worker: 200 OK (Tunnel URL and worker grant)
 
     Note over Buyer, Worker: Step 3: Real-Time Execution Tunnel
-    Buyer->>DO: Upgrade with buyer bearer grant + identity header
-    Worker->>DO: Upgrade with worker bearer grant + identity header
-    Note over DO: Validate gig, role, identity, expiry, use; enforce 2 peers
+    Buyer->>DO: Upgrade with buyer bearer grant and identity header
+    Worker->>DO: Upgrade with worker bearer grant and identity header
+    Note over DO: Validate gig, role, identity, expiry, use and enforce 2 peers
     Buyer->>DO: Send instruction/payload
     DO->>Worker: Relay instruction
     Worker->>Worker: Execute task
@@ -232,7 +232,7 @@ sequenceDiagram
     Gateway->>DO: IN_PROGRESS → DELIVERED
     Buyer->>Gateway: POST TaskAcceptance (idempotent)
     Gateway->>DO: DELIVERED → COMPLETED → CLOSED
-    DO->>D1: Project COMPLETED + version
+    DO->>D1: Project COMPLETED and version
     DO-->>Buyer: Revoke and close tunnel
     DO-->>Worker: Revoke and close tunnel
 ```
